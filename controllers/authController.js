@@ -34,7 +34,8 @@ export const register = async (req, res, next) => {
       user: {
         id: user._id,
         name: user.name,
-        email: user.email
+        email: user.email,
+        isProfileCompleted: user.isProfileCompleted
       }
     });
   } catch (error) {
@@ -84,7 +85,8 @@ export const login = async (req, res, next) => {
       user: {
         id: user._id,
         name: user.name,
-        email: user.email
+        email: user.email,
+        isProfileCompleted: user.isProfileCompleted
       }
     });
   } catch (error) {

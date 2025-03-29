@@ -20,6 +20,11 @@ const userSchema = new mongoose.Schema({
     minlength: 6,
     select: false
   },
+  isProfileCompleted: {
+    type: Boolean,
+    required: [true, 'Provide Update Flag'],
+    default: false
+  },
   resetPasswordToken: String,
   resetPasswordExpire: Date,
   createdAt: {
