@@ -25,8 +25,14 @@ const userSchema = new mongoose.Schema({
     required: [true, 'Provide Update Flag'],
     default: false
   },
-  resetPasswordToken: String,
-  resetPasswordExpire: Date,
+  passwordResetOtp: {
+    type: String,
+    select: false
+  },
+  passwordResetExpire: {
+    type: Date,
+    select: false
+  },
   createdAt: {
     type: Date,
     default: Date.now
