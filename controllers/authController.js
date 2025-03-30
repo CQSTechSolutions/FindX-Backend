@@ -220,4 +220,19 @@ export const resetPassword = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+};
+
+// Get all users
+export const getAllUsers = async (req, res, next) => {
+  try {
+    const users = await User.find().select('-password -passwordResetOtp -passwordResetExpire');
+
+    res.json({
+      success: true,
+      count: users.length,
+      users
+    });
+  } catch (error) {
+    next(error);
+  }
 }; 
