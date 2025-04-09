@@ -12,6 +12,7 @@ const userSchema = new mongoose.Schema({
     required: [true, 'Please provide an email'],
     unique: true,
     lowercase: true,
+    index: true,
     trim: true
   },
   password: {
@@ -28,6 +29,106 @@ const userSchema = new mongoose.Schema({
   savedJobs: {
     type: [mongoose.Schema.Types.ObjectId],
     ref: 'Job',
+    default: []
+  },
+  gender: {
+    type: String,
+    enum: ["Male", "Female", "Other"],
+    required: false
+  },
+  preferred_pronouns: {
+    type: String,
+    enum: ["He/Him", "She/Her", "They/Them"],
+    required: false
+  },
+  nationality: {
+    type: String,
+    required: true
+  },
+  resident_country: {
+    type: String,
+    required: false
+  },
+  known_language: {
+    type: [String],
+    required: false,
+    default: []
+  },
+  preferred_time_zone: {
+    type: String,
+    required: false,
+    default: 'UTC'
+  },
+  highest_qualification: {
+    type: String,
+    enum: ["High School", "Bachelors", "Masters", "PhD"],
+    required: false
+  },
+  achievements: {
+    type: [String],
+    required: false,
+    default: []
+  },
+  skills_and_capabilities: {
+    type: [String],
+    required: false,
+    default: []
+  },
+  resume: {
+    type: String,
+    required: false
+  },
+  resume_downloadble: {
+    type: Boolean,
+    default: true,
+    required: [true, "Please provide a resume download flag"]
+  },
+  cover_letter: {
+    type: String,
+    required: false
+  },
+  dream_job_title: {
+    type: String,
+    required: false
+  },
+  preferred_job_types: {
+    type: [String],
+    enum: ["Full-time", "Part-time", "Contract", "Internship"],
+    required: false,
+    default: []
+  },
+  work_env_preferences: {
+    type: [String],
+    enum: ["Startup", "Corporate", "NGO", "Freelance", "Remote"],
+    required: false,
+    default: []
+  },
+  preferred_locations: {
+    type: [String],
+    required: false,
+    default: []
+  },
+  video_intro: {
+    type: String,
+    required: false
+  },
+  willing_to_relocate: {
+    type: Boolean,
+    required: false,
+    default: false
+  },
+  willing_to_travel: {
+    type: Boolean,
+    required: false,
+    default: false
+  },
+  preferred_interview_mode: {
+    type: String,
+    enum: ["In-person", "On-Call"],
+  },
+  hobbies: {
+    type: [String],
+    required: false,
     default: []
   },
   passwordResetOtp: {
