@@ -87,6 +87,18 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: false
   },
+  work_history: {
+    type: [mongoose.Schema.Types.ObjectId],
+    ref: 'WorkHistory',
+    required: false,
+    default: []
+  },
+  education: {
+    type: [mongoose.Schema.Types.ObjectId],
+    ref: 'Education',
+    required: false,
+    default: []
+  },
   dream_job_title: {
     type: String,
     required: false
@@ -126,10 +138,38 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ["In-person", "On-Call"],
   },
+  personal_branding_statement: {
+    type: String,
+    required: false
+  },
   hobbies: {
     type: [String],
     required: false,
     default: []
+  },
+  emergency_contact_number: {
+    type: String,
+    required: false
+  },
+  emergency_contact_name: {
+    type: String,
+    required: false
+  },
+  emergency_contact_relationship: {
+    type: String,
+    required: false
+  },
+  profile_link: {
+    type: String,
+    required: false
+  },
+  github_link: {
+    type: String,
+    required: false
+  },
+  linkedIn_link: {
+    type: String,
+    required: false
   },
   passwordResetOtp: {
     type: String,
