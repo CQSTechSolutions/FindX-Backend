@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import User from '../models/User.js';
+import Job from '../models/Job.model.js';
 import sendEmail from '../utils/sendEmail.js';
 
 // Register user
@@ -216,6 +217,113 @@ export const resetPassword = async (req, res, next) => {
       success: true,
       message: 'Password reset successful',
       token
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get all users
+export const getAllUsers = async (req, res, next) => {
+  try {
+    const users = await User.find().select('-password -passwordResetOtp -passwordResetExpire');
+
+    res.json({
+      success: true,
+      count: users.length,
+      users
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Save a job
+export const saveJob = async (req, res, next) => {
+  try {
+    const jobId = req.params.jobId;
+
+    // Check if job exists
+    const job = await Job.findById(jobId);
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: 'Job not found'
+      });
+    }
+
+    // Get user with saved jobs
+    const user = await User.findById(req.user.id);
+
+    // Check if job is already saved
+    if (user.savedJobs.includes(jobId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Job already saved'
+      });
+    }
+
+    // Add job to saved jobs
+    user.savedJobs.push(jobId);
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Job saved successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Unsave a job
+export const unsaveJob = async (req, res, next) => {
+  try {
+    const jobId = req.params.jobId;
+
+    // Get user with saved jobs
+    const user = await User.findById(req.user.id);
+
+    // Check if job is saved
+    if (!user.savedJobs.includes(jobId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Job not saved'
+      });
+    }
+
+    // Remove job from saved jobs
+    user.savedJobs = user.savedJobs.filter(
+      (id) => id.toString() !== jobId
+    );
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Job removed from saved jobs'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get saved jobs
+export const getSavedJobs = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id)
+      .populate({
+        path: 'savedJobs',
+        select: 'jobTitle jobDescription status postedBy createdAt',
+        populate: {
+          path: 'postedBy',
+          select: 'name email'
+        }
+      });
+
+    res.json({
+      success: true,
+      count: user.savedJobs.length,
+      jobs: user.savedJobs
     });
   } catch (error) {
     next(error);
