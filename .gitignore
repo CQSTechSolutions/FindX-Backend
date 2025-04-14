@@ -1,2 +1,6 @@
 .env
 node_modules
+docs/
+*.md
+.idea/
+.idea

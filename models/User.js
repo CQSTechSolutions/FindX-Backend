@@ -43,7 +43,7 @@ const userSchema = new mongoose.Schema({
   },
   nationality: {
     type: String,
-    required: true
+    required: false
   },
   resident_country: {
     type: String,

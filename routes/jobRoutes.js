@@ -10,7 +10,7 @@ import {
     getMyPostedJobs,
     getMyApplications
 } from '../controllers/jobController.js';
-import { protect } from '../middleware/authMiddleware.js';
+// import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -19,7 +19,7 @@ router.get('/', getAllJobs);
 router.get('/:id', getJob);
 
 // Protected routes
-router.use(protect); // All routes below this will require authentication
+// router.use(protect); // All routes below this will require authentication
 
 // Job management routes
 router.post('/', createJob);
