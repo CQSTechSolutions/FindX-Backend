@@ -96,7 +96,6 @@ export const login = async (req, res, next) => {
   }
 };
 
-// Send OTP for forgot password
 export const forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
@@ -155,7 +154,6 @@ export const forgotPassword = async (req, res, next) => {
   }
 };
 
-// Verify OTP
 export const verifyOtp = async (req, res, next) => {
   try {
     const { email, otp } = req.body;
@@ -183,7 +181,6 @@ export const verifyOtp = async (req, res, next) => {
   }
 };
 
-// Reset password after OTP verification
 export const resetPassword = async (req, res, next) => {
   try {
     const { email, otp, newPassword } = req.body;
@@ -223,7 +220,6 @@ export const resetPassword = async (req, res, next) => {
   }
 };
 
-// Get all users
 export const getAllUsers = async (req, res, next) => {
   try {
     const users = await User.find().select('-password -passwordResetOtp -passwordResetExpire');
@@ -238,7 +234,6 @@ export const getAllUsers = async (req, res, next) => {
   }
 };
 
-// Save a job
 export const saveJob = async (req, res, next) => {
   try {
     const jobId = req.params.jobId;
@@ -276,7 +271,6 @@ export const saveJob = async (req, res, next) => {
   }
 };
 
-// Unsave a job
 export const unsaveJob = async (req, res, next) => {
   try {
     const jobId = req.params.jobId;
@@ -307,7 +301,6 @@ export const unsaveJob = async (req, res, next) => {
   }
 };
 
-// Get saved jobs
 export const getSavedJobs = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id)
@@ -330,7 +323,6 @@ export const getSavedJobs = async (req, res, next) => {
   }
 };
 
-// Update user name
 export const updateName = async (req, res, next) => {
   try {
     const { name } = req.body;
@@ -357,7 +349,6 @@ export const updateName = async (req, res, next) => {
   }
 };
 
-// Update gender
 export const updateGender = async (req, res, next) => {
   try {
     const { gender } = req.body;
@@ -384,7 +375,6 @@ export const updateGender = async (req, res, next) => {
   }
 };
 
-// Update preferred pronouns
 export const updatePronouns = async (req, res, next) => {
   try {
     const { preferred_pronouns } = req.body;
@@ -411,7 +401,6 @@ export const updatePronouns = async (req, res, next) => {
   }
 };
 
-// Update nationality
 export const updateNationality = async (req, res, next) => {
   try {
     const { nationality } = req.body;
@@ -438,7 +427,6 @@ export const updateNationality = async (req, res, next) => {
   }
 };
 
-// Update resident country
 export const updateResidentCountry = async (req, res, next) => {
   try {
     const { resident_country } = req.body;
@@ -465,7 +453,6 @@ export const updateResidentCountry = async (req, res, next) => {
   }
 };
 
-// Update known languages
 export const updateKnownLanguages = async (req, res, next) => {
   try {
     const { known_language } = req.body;
@@ -492,7 +479,6 @@ export const updateKnownLanguages = async (req, res, next) => {
   }
 };
 
-// Update preferred time zone
 export const updateTimeZone = async (req, res, next) => {
   try {
     const { preferred_time_zone } = req.body;
@@ -519,7 +505,6 @@ export const updateTimeZone = async (req, res, next) => {
   }
 };
 
-// Update highest qualification
 export const updateQualification = async (req, res, next) => {
   try {
     const { highest_qualification } = req.body;
@@ -546,7 +531,6 @@ export const updateQualification = async (req, res, next) => {
   }
 };
 
-// Update achievements
 export const updateAchievements = async (req, res, next) => {
   try {
     const { achievements } = req.body;
@@ -573,7 +557,6 @@ export const updateAchievements = async (req, res, next) => {
   }
 };
 
-// Update skills and capabilities
 export const updateSkills = async (req, res, next) => {
   try {
     const { skills_and_capabilities } = req.body;
@@ -600,7 +583,6 @@ export const updateSkills = async (req, res, next) => {
   }
 };
 
-// Update resume
 export const updateResume = async (req, res, next) => {
   try {
     const { resume, resume_downloadble } = req.body;
@@ -633,7 +615,6 @@ export const updateResume = async (req, res, next) => {
   }
 };
 
-// Update cover letter
 export const updateCoverLetter = async (req, res, next) => {
   try {
     const { cover_letter } = req.body;
@@ -660,7 +641,6 @@ export const updateCoverLetter = async (req, res, next) => {
   }
 };
 
-// Update dream job title
 export const updateDreamJob = async (req, res, next) => {
   try {
     const { dream_job_title } = req.body;
@@ -687,7 +667,6 @@ export const updateDreamJob = async (req, res, next) => {
   }
 };
 
-// Update preferred job types
 export const updatePreferredJobTypes = async (req, res, next) => {
   try {
     const { preferred_job_types } = req.body;
@@ -715,7 +694,6 @@ export const updatePreferredJobTypes = async (req, res, next) => {
   }
 };
 
-// Update work environment preferences
 export const updateWorkEnvPreferences = async (req, res, next) => {
   try {
     const { work_env_preferences } = req.body;
@@ -743,7 +721,6 @@ export const updateWorkEnvPreferences = async (req, res, next) => {
   }
 };
 
-// Update preferred locations
 export const updatePreferredLocations = async (req, res, next) => {
   try {
     const { preferred_locations } = req.body;
@@ -770,7 +747,6 @@ export const updatePreferredLocations = async (req, res, next) => {
   }
 };
 
-// Update video intro
 export const updateVideoIntro = async (req, res, next) => {
   try {
     const { video_intro } = req.body;
@@ -797,7 +773,6 @@ export const updateVideoIntro = async (req, res, next) => {
   }
 };
 
-// Update relocation and travel preferences
 export const updateMobilityPreferences = async (req, res, next) => {
   try {
     const { willing_to_relocate, willing_to_travel } = req.body;
@@ -829,7 +804,6 @@ export const updateMobilityPreferences = async (req, res, next) => {
   }
 };
 
-// Update preferred interview mode
 export const updateInterviewMode = async (req, res, next) => {
   try {
     const { preferred_interview_mode } = req.body;
@@ -856,7 +830,6 @@ export const updateInterviewMode = async (req, res, next) => {
   }
 };
 
-// Update personal branding statement
 export const updateBrandingStatement = async (req, res, next) => {
   try {
     const { personal_branding_statement } = req.body;
@@ -868,22 +841,29 @@ export const updateBrandingStatement = async (req, res, next) => {
     }
 
     const user = await User.findByIdAndUpdate(
-      req.user.id,
-      { personal_branding_statement },
-      { new: true, runValidators: true }
+        req.user.id,
+        { personal_branding_statement },
+        { new: true, runValidators: true }
     );
 
-    res.json({
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.status(200).json({
       success: true,
       message: 'Personal branding statement updated successfully',
       personal_branding_statement: user.personal_branding_statement
     });
   } catch (error) {
+    console.error('Update branding statement error:', error);
     next(error);
   }
 };
 
-// Update hobbies
 export const updateHobbies = async (req, res, next) => {
   try {
     const { hobbies } = req.body;
@@ -910,7 +890,6 @@ export const updateHobbies = async (req, res, next) => {
   }
 };
 
-// Update emergency contact
 export const updateEmergencyContact = async (req, res, next) => {
   try {
     const { emergency_contact_number, emergency_contact_name, emergency_contact_relationship } = req.body;
@@ -945,7 +924,6 @@ export const updateEmergencyContact = async (req, res, next) => {
   }
 };
 
-// Update social links
 export const updateSocialLinks = async (req, res, next) => {
   try {
     const { profile_link, github_link, linkedIn_link } = req.body;
