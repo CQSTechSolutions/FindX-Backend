@@ -30,6 +30,7 @@ import {
   updateEmergencyContact,
   updateSocialLinks
 } from '../controllers/authController.js';
+import {protect} from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -63,7 +64,7 @@ router.put('/update/locations', updatePreferredLocations);
 router.put('/update/video-intro', updateVideoIntro);
 router.put('/update/mobility', updateMobilityPreferences);
 router.put('/update/interview-mode', updateInterviewMode);
-router.put('/update/branding-statement', updateBrandingStatement);
+router.put('/update/branding-statement', protect ,updateBrandingStatement);
 router.put('/update/hobbies', updateHobbies);
 router.put('/update/emergency-contact', updateEmergencyContact);
 router.put('/update/social-links', updateSocialLinks);
