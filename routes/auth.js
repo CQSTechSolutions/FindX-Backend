@@ -54,7 +54,7 @@ router.put('/update/languages', updateKnownLanguages);
 router.put('/update/timezone', updateTimeZone);
 router.put('/update/qualification', updateQualification);
 router.put('/update/achievements', updateAchievements);
-router.put('/update/skills', updateSkills);
+router.put('/update/skills', protect ,updateSkills);
 router.put('/update/resume', updateResume);
 router.put('/update/cover-letter', updateCoverLetter);
 router.put('/update/dream-job', updateDreamJob);
