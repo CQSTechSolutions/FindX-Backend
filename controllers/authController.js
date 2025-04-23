@@ -81,15 +81,13 @@ export const login = async (req, res, next) => {
       expiresIn: process.env.JWT_EXPIRE
     });
 
+    // Get complete user data without sensitive fields
+    const userWithoutPassword = await User.findById(user._id).select('-password -passwordResetOtp -passwordResetExpire');
+
     res.json({
       success: true,
       token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        isProfileCompleted: user.isProfileCompleted
-      }
+      user: userWithoutPassword
     });
   } catch (error) {
     next(error);
@@ -338,6 +336,13 @@ export const updateName = async (req, res, next) => {
       { name },
       { new: true, runValidators: true }
     );
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
 
     res.json({
       success: true,
@@ -948,6 +953,500 @@ export const updateSocialLinks = async (req, res, next) => {
     res.json({
       success: true,
       message: 'Social links updated successfully',
+      social_links: {
+        profile: user.profile_link,
+        github: user.github_link,
+        linkedIn: user.linkedIn_link
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Added GET controller functions
+
+// Get complete user profile
+export const getUserProfile = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password -passwordResetOtp -passwordResetExpire');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      user
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Individual field getters
+export const getName = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select('name');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      name: user.name
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getGender = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select('gender');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      gender: user.gender
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getPronouns = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select('preferred_pronouns');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      preferred_pronouns: user.preferred_pronouns
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getNationality = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select('nationality');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      nationality: user.nationality
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getResidentCountry = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select('resident_country');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      resident_country: user.resident_country
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getKnownLanguages = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select('known_language');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      known_language: user.known_language
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getTimeZone = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select('preferred_time_zone');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      preferred_time_zone: user.preferred_time_zone
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getQualification = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select('highest_qualification');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      highest_qualification: user.highest_qualification
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getAchievements = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select('achievements');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      achievements: user.achievements
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getSkills = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select('skills_and_capabilities');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      skills_and_capabilities: user.skills_and_capabilities
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getResume = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select('resume resume_downloadble');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      resume: user.resume,
+      resume_downloadble: user.resume_downloadble
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getCoverLetter = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select('cover_letter');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      cover_letter: user.cover_letter
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getDreamJob = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select('dream_job_title');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      dream_job_title: user.dream_job_title
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getPreferredJobTypes = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select('preferred_job_types');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      preferred_job_types: user.preferred_job_types
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getWorkEnvPreferences = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select('work_env_preferences');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      work_env_preferences: user.work_env_preferences
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getPreferredLocations = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select('preferred_locations');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      preferred_locations: user.preferred_locations
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getVideoIntro = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select('video_intro');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      video_intro: user.video_intro
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getMobilityPreferences = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select('willing_to_relocate willing_to_travel');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      willing_to_relocate: user.willing_to_relocate,
+      willing_to_travel: user.willing_to_travel
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getInterviewMode = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select('preferred_interview_mode');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      preferred_interview_mode: user.preferred_interview_mode
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getBrandingStatement = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select('personal_branding_statement');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      personal_branding_statement: user.personal_branding_statement
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getHobbies = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select('hobbies');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      hobbies: user.hobbies
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getEmergencyContact = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select('emergency_contact_number emergency_contact_name emergency_contact_relationship');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      emergency_contact: {
+        name: user.emergency_contact_name,
+        number: user.emergency_contact_number,
+        relationship: user.emergency_contact_relationship
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getSocialLinks = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select('profile_link github_link linkedIn_link');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
       social_links: {
         profile: user.profile_link,
         github: user.github_link,
