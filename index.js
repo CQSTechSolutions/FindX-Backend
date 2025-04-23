@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import authRoutes from './routes/auth.js';
 import jobRoutes from './routes/jobRoutes.js';
+import educationRoutes from './routes/education.js';
 import errorHandler from './middleware/errorHandler.js';
 
 dotenv.config();
@@ -17,6 +18,7 @@ app.use(express.json());
 // Routes
 app.use(`/api/auth`, authRoutes);
 app.use(`/api/jobs`, jobRoutes);
+app.use(`/api/education`, educationRoutes);
 
 // Error handling middleware
 app.use(errorHandler);
