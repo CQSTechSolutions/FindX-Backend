@@ -93,6 +93,28 @@ export const login = async (req, res, next) => {
   }
 };
 
+// Get current user
+export const getCurrentUser = async (req, res, next) => {
+  try {
+    // req.user is set by the protect middleware
+    const user = await User.findById(req.user._id).select('-password -passwordResetOtp -passwordResetExpire');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      user
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;

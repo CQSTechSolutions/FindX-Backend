@@ -7,7 +7,8 @@ import {
     resetPassword,
     verifyOtp,
     updateUserProfile,
-    getUser
+    getUser,
+    getCurrentUser
 } from '../controllers/authController.js';
 import {protect} from "../middleware/auth.js";
 
@@ -22,7 +23,8 @@ router.post('/resetpassword', resetPassword);
 
 // User routes
 router.get('/users', protect, getAllUsers);
-router.get('/user:id', getUser);
+router.get('/user/me', protect, getCurrentUser);
+router.get('/user/:id', getUser);
 
 // Generic Update Route
 router.patch('/user/updateUserProfile', protect, updateUserProfile);
