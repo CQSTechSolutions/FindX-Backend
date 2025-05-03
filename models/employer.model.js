@@ -74,18 +74,26 @@ const employerSchema = new mongoose.Schema({
         ref: 'User',
         default: [],
     }
-},{timestamps: true});
+}, { timestamps: true });
+
+// Hash password before saving
+employerSchema.pre('save', async function (next) {
+    if (!this.isModified('password')) return next();
+
+    try {
+        const salt = await bcrypt.genSalt(10);
+        this.password = await bcrypt.hash(this.password, salt);
+        next();
+    } catch (err) {
+        next(err);
+    }
+});
+
+// Compare password method
+employerSchema.methods.comparePassword = async function (candidatePassword) {
+    return await bcrypt.compare(candidatePassword, this.password);
+};
 
 const Employer = mongoose.model("Employer", employerSchema);
-
-employerSchema.methods.comparePassword = async function(employerPassword) {
-    return await bcrypt.compare(employerPassword, this.password);
-}
-
-employerSchema.pre("save", async function(next) {
-    if(!this.isModified("password")) return next();
-    this.password = await bcrypt.hash(this.password, 10);
-    next();
-});
 
 export default Employer;

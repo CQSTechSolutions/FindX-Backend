@@ -1,4 +1,5 @@
 import Employer from "../models/Employer.model.js";
+import bcrypt from "bcrypt";
 
 export const createAccount = async (req, res) => {
     const employer = req.body;
@@ -12,6 +13,7 @@ export const createAccount = async (req, res) => {
 
 export const login = async (req, res) => {
     const loginData = req.body;
+    console.log(loginData);
     try {
         const employer = await Employer.findOne({ 
             companyEmployerId: loginData.companyEmployerId,
