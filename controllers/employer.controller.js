@@ -1,5 +1,8 @@
-import Employer from "../models/Employer.model.js";
+import dotenv from "dotenv";
+import Employer from "../models/employer.model.js";
 import bcrypt from "bcrypt";
+
+dotenv.config();
 
 export const createAccount = async (req, res) => {
     const employer = req.body;
@@ -13,7 +16,7 @@ export const createAccount = async (req, res) => {
 
 export const login = async (req, res) => {
     const loginData = req.body;
-    console.log(loginData);
+    // console.log(loginData);
     try {
         const employer = await Employer.findOne({ 
             companyEmployerId: loginData.companyEmployerId,
