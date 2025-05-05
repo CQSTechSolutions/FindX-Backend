@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
 import Employer from "../models/employer.model.js";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 
 dotenv.config();
 

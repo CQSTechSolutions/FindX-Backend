@@ -4,13 +4,9 @@ import User from '../models/User.js';
 // Create a new job
 export const createJob = async (req, res, next) => {
     try {
-        const { jobTitle, jobDescription } = req.body;
+        const jobData = req.body;
         
-        const job = await Job.create({
-            jobTitle,
-            jobDescription,
-            postedBy: req.user.id // This will come from auth middleware
-        });
+        const job = await Job.create(jobData);
 
         res.status(201).json({
             success: true,
