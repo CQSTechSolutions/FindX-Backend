@@ -21,6 +21,8 @@ export const createJob = async (req, res, next) => {
 // Get all jobs
 export const getAllJobs = async (req, res, next) => {
     try {
+        // TODO: Might have to block the poplulate method.
+        // FIXME: Update the method controller to make it work.
         const jobs = await Job.find()
             .populate('postedBy', 'name email')
             .sort('-createdAt');
