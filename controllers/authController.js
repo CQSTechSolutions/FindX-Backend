@@ -330,3 +330,31 @@ export const getUser = async (req, res, next) => {
     next(e);
   }
 };
+
+export const updateSavedJobs = async (req,res) => {
+  const { userId } = req.params;
+  const { jobId, action } = req.body; // action can be 'add' or 'remove'
+
+  if (!mongoose.Types.ObjectId.isValid(jobId)) {
+      return res.status(400).json({ message: "Invalid job ID" });
+  }
+
+  try {
+      const user = await User.findById(userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+
+      const jobObjectId = new mongoose.Types.ObjectId(jobId);
+
+      if (action === "add" && !user.savedJobs.includes(jobObjectId)) {
+          user.savedJobs.push(jobObjectId);
+      } else if (action === "remove") {
+          user.savedJobs = user.savedJobs.filter(id => !id.equals(jobObjectId));
+      }
+
+      await user.save();
+      return res.status(200).json({ message: "Saved jobs updated", savedJobs: user.savedJobs });
+  } catch (error) {
+      console.error("Error updating saved jobs:", error);
+      return res.status(500).json({ message: "Server error" });
+  }
+};
