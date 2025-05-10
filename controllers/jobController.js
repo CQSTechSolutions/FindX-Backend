@@ -267,4 +267,56 @@ export const getMyApplications = async (req, res, next) => {
     } catch (error) {
         next(error);
     }
+};
+
+// Update saved jobs for a user
+export const updateSavedJobs = async (req, res, next) => {
+    try {
+        const { userId } = req.params;
+        const { jobId, action } = req.body;
+
+        if (!jobId || !['add', 'remove'].includes(action)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid request. Please provide jobId and action (add/remove)'
+            });
+        }
+
+        // Verify job exists
+        const job = await Job.findById(jobId);
+        if (!job) {
+            return res.status(404).json({
+                success: false,
+                message: 'Job not found'
+            });
+        }
+
+        // Find user and update savedJobs
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        if (action === 'add') {
+            // Check if job is already saved
+            if (!user.savedJobs.includes(jobId)) {
+                user.savedJobs.push(jobId);
+            }
+        } else if (action === 'remove') {
+            user.savedJobs = user.savedJobs.filter(id => id.toString() !== jobId);
+        }
+
+        await user.save();
+
+        res.json({
+            success: true,
+            message: `Job ${action === 'add' ? 'saved' : 'removed'} successfully`,
+            user
+        });
+    } catch (error) {
+        next(error);
+    }
 }; 
