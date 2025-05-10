@@ -100,6 +100,11 @@ const userSchema = new mongoose.Schema({
         ref: 'Job',
         default: []
     },
+    appliedJobs: {
+        type: [mongoose.Schema.Types.ObjectId],
+        ref: 'Job',
+        default: []
+    },
     gender: {
         type: String,
         enum: ['Male', 'Female', 'Other']

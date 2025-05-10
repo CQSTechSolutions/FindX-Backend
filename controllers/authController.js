@@ -266,7 +266,7 @@ export const updateUserProfile = async (req, res, next) => {
       'cover_letter', 'dream_job_title', 'preferred_job_types',
       'work_env_preferences', 'relocation', 'personal_branding_statement',
       'hobbies', 'emergency_contact_info', 'externalLinks', 'education',
-      'work_history', 'savedJobs', 'isProfileCompleted'
+      'work_history', 'savedJobs', 'isProfileCompleted', 'appliedJobs'
     ];
 
     const invalidFields = Object.keys(updates).filter(
