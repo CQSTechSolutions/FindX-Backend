@@ -57,3 +57,27 @@ export const getAllEmployers = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 }
+
+export const setMessagingStatus = async (req, res) => {
+    try {
+        const { messagingStatus, empId }  = req.body;
+
+        if (typeof messagingStatus !== "boolean" || !empId) {
+            return res.status(400).json({ message: "Invalid input" });
+        }
+
+        const updatedEmployer = await Employer.findByIdAndUpdate(
+            empId,
+            { messagesAllowed: messagingStatus },
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedEmployer) {
+            return res.status(404).json({ message: "Employer not found" });
+        }
+
+        res.status(200).json(updatedEmployer);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+}

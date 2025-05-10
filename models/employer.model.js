@@ -69,6 +69,11 @@ const employerSchema = new mongoose.Schema({
         type: Boolean,
         default: false,
     },
+    messagesAllowedFrom: {
+        type: [mongoose.Schema.Types.ObjectId],
+        ref: 'User',
+        default: [],
+    },
     blockedApplicants: {
         type: [mongoose.Schema.Types.ObjectId],
         ref: 'User',
