@@ -8,7 +8,8 @@ import {
     verifyOtp,
     updateUserProfile,
     getUser,
-    getCurrentUser
+    getCurrentUser,
+    updateSavedJobs
 } from '../controllers/authController.js';
 import {protect} from "../middleware/auth.js";
 
@@ -28,6 +29,7 @@ router.get('/user/:id', getUser);
 
 // Generic Update Route
 router.patch('/user/updateUserProfile', protect, updateUserProfile);
+router.put("/users/:userId/saved-jobs", updateSavedJobs);
 
 
 export default router; 
