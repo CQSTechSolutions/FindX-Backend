@@ -78,6 +78,27 @@ const employerSchema = new mongoose.Schema({
         type: [mongoose.Schema.Types.ObjectId],
         ref: 'User',
         default: [],
+    },
+    pricingPlan: {
+        type: String,
+        enum: ['Standard', 'Boosted100App', 'Boosted100Email', 'Boosted100Both', 
+               'Boosted250App', 'Boosted250Email', 'Boosted250Both',
+               'Boosted500App', 'Boosted500Email', 'Boosted500Both',
+               'Boosted750App', 'Boosted750Email', 'Boosted750Both',
+               'Boosted1000App', 'Boosted1000Email', 'Boosted1000Both'],
+        default: 'Standard'
+    },
+    planPurchaseDate: {
+        type: Date,
+        default: null
+    },
+    planExpiryDate: {
+        type: Date,
+        default: null
+    },
+    earlyBirdPricing: {
+        type: Boolean,
+        default: true
     }
 }, { timestamps: true });
 

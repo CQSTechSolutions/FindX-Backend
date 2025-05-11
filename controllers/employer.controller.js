@@ -162,3 +162,48 @@ export const setMessagingStatus = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 }
+
+export const updatePricingPlan = async (req, res) => {
+    try {
+        const { pricingPlan, empId } = req.body;
+        
+        if (!pricingPlan || !empId) {
+            return res.status(400).json({ 
+                success: false,
+                message: "Invalid input" 
+            });
+        }
+
+        // Calculate expiry date (typically 30 days from purchase)
+        const planPurchaseDate = new Date();
+        const planExpiryDate = new Date();
+        planExpiryDate.setDate(planExpiryDate.getDate() + 30);
+
+        const updatedEmployer = await Employer.findByIdAndUpdate(
+            empId,
+            { 
+                pricingPlan, 
+                planPurchaseDate, 
+                planExpiryDate 
+            },
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedEmployer) {
+            return res.status(404).json({ 
+                success: false,
+                message: "Employer not found" 
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            employer: updatedEmployer
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            success: false,
+            message: error.message 
+        });
+    }
+}
