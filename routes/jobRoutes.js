@@ -10,7 +10,8 @@ import {
     getMyPostedJobs,
     getMyApplications
 } from '../controllers/jobController.js';
-// import { protect } from '../middleware/authMiddleware.js';
+import { protect } from '../middleware/auth.js';
+import { protectEmployer } from '../middleware/employerAuth.js';
 
 const router = express.Router();
 
@@ -18,20 +19,15 @@ const router = express.Router();
 router.get('/', getAllJobs);
 router.get('/:id', getJob);
 
-// Protected routes
-// router.use(protect); // All routes below this will require authentication
+// Protected user routes
+router.post('/:id/apply', protect, applyForJob);
+router.get('/my/applications', protect, getMyApplications);
 
-// Job management routes
-router.post('/', createJob);
-router.put('/:id', updateJob);
-router.delete('/:id', deleteJob);
-
-// Application routes
-router.post('/:id/apply', applyForJob);
-router.put('/:id/applications/:applicationId', updateApplicationStatus);
-
-// User specific routes
-router.get('/my/posted', getMyPostedJobs);
-router.get('/my/applications', getMyApplications);
+// Protected employer routes
+router.post('/', protectEmployer, createJob);
+router.put('/:id', protectEmployer, updateJob);
+router.delete('/:id', protectEmployer, deleteJob);
+router.put('/:id/applications/:applicationId', protectEmployer, updateApplicationStatus);
+router.get('/my/posted', protectEmployer, getMyPostedJobs);
 
 export default router; 

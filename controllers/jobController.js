@@ -223,7 +223,22 @@ export const updateApplicationStatus = async (req, res, next) => {
 // Get my posted jobs
 export const getMyPostedJobs = async (req, res, next) => {
     try {
-        const jobs = await Job.find({ postedBy: req.user.id })
+        // When used by a regular user
+        let userId = req.user?._id;
+        
+        // When used by an employer
+        if (req.employer) {
+            userId = req.employer._id;
+        }
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: 'Authentication required'
+            });
+        }
+
+        const jobs = await Job.find({ postedBy: userId })
             .populate('applicants.user', 'name email')
             .sort('-createdAt');
 

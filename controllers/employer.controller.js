@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
 import Employer from "../models/employer.model.js";
-import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
 dotenv.config();
 
@@ -8,15 +8,32 @@ export const createAccount = async (req, res) => {
     const employer = req.body;
     try {
         const newEmployer = await Employer.create(employer);
-        res.status(201).json(newEmployer);
+        
+        // Create JWT token
+        const token = jwt.sign(
+            { id: newEmployer._id }, 
+            process.env.JWT_SECRET,
+            { expiresIn: process.env.JWT_EXPIRE }
+        );
+        
+        // Remove password from response
+        newEmployer.password = undefined;
+        
+        res.status(201).json({
+            success: true,
+            token,
+            employer: newEmployer
+        });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json({ 
+            success: false,
+            message: error.message 
+        });
     }
 }
 
 export const login = async (req, res) => {
     const loginData = req.body;
-    // console.log(loginData);
     try {
         const employer = await Employer.findOne({ 
             companyEmployerId: loginData.companyEmployerId,
@@ -24,18 +41,39 @@ export const login = async (req, res) => {
         }).select('+password');
 
         if (!employer) {
-            return res.status(404).json({ message: "Employer not found" });
+            return res.status(404).json({ 
+                success: false,
+                message: "Employer not found" 
+            });
         }
 
-        const isMatch = await bcrypt.compare(loginData.password, employer.password);
+        const isMatch = await employer.comparePassword(loginData.password);
         if (!isMatch) {
-            return res.status(401).json({ message: "Invalid Credentials" });
+            return res.status(401).json({ 
+                success: false,
+                message: "Invalid Credentials" 
+            });
         }
+
+        // Create JWT token
+        const token = jwt.sign(
+            { id: employer._id }, 
+            process.env.JWT_SECRET,
+            { expiresIn: process.env.JWT_EXPIRE }
+        );
 
         employer.password = undefined;
-        res.status(200).json(employer);
+        
+        res.status(200).json({
+            success: true,
+            token,
+            employer
+        });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json({ 
+            success: false,
+            message: error.message 
+        });
     }
 }
 
@@ -43,18 +81,61 @@ export const getEmployer = async (req, res) => {
     const employerId = req.params.employerId;
     try {
         const employer = await Employer.findById(employerId);
-        res.status(200).json(employer);
+        if (!employer) {
+            return res.status(404).json({
+                success: false,
+                message: "Employer not found"
+            });
+        }
+        res.status(200).json({
+            success: true,
+            employer
+        });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json({ 
+            success: false,
+            message: error.message 
+        });
     }
 }
 
 export const getAllEmployers = async (req, res) => {
     try {
         const employers = await Employer.find();
-        res.status(200).json(employers);
+        res.status(200).json({
+            success: true,
+            count: employers.length,
+            employers
+        });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json({ 
+            success: false,
+            message: error.message 
+        });
+    }
+}
+
+export const getCurrentEmployer = async (req, res) => {
+    try {
+        // req.employer is set by the protect middleware
+        const employer = await Employer.findById(req.employer._id);
+        
+        if (!employer) {
+            return res.status(404).json({
+                success: false,
+                message: 'Employer not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            employer
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
     }
 }
 
