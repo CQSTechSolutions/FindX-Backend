@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import sendEmail from '../utils/sendEmail.js';
 import _ from "lodash";
+import mongoose from 'mongoose';
 
 // Register user
 export const register = async (req, res, next) => {
@@ -331,30 +332,52 @@ export const getUser = async (req, res, next) => {
   }
 };
 
-export const updateSavedJobs = async (req,res) => {
-  const { userId } = req.params;
-  const { jobId, action } = req.body; // action can be 'add' or 'remove'
-
-  if (!mongoose.Types.ObjectId.isValid(jobId)) {
-      return res.status(400).json({ message: "Invalid job ID" });
-  }
-
+export const updateSavedJobs = async (req, res, next) => {
   try {
-      const user = await User.findById(userId);
-      if (!user) return res.status(404).json({ message: "User not found" });
+    const { userId } = req.params;
+    const { jobId, action } = req.body; // action can be 'add' or 'remove'
 
-      const jobObjectId = new mongoose.Types.ObjectId(jobId);
+    // Verify that the authenticated user matches the requested userId
+    if (req.user._id.toString() !== userId) {
+      return res.status(403).json({ 
+        success: false, 
+        message: "You're not authorized to update this user's saved jobs" 
+      });
+    }
 
-      if (action === "add" && !user.savedJobs.includes(jobObjectId)) {
-          user.savedJobs.push(jobObjectId);
-      } else if (action === "remove") {
-          user.savedJobs = user.savedJobs.filter(id => !id.equals(jobObjectId));
-      }
+    if (!mongoose.Types.ObjectId.isValid(jobId)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Invalid job ID" 
+      });
+    }
 
-      await user.save();
-      return res.status(200).json({ message: "Saved jobs updated", savedJobs: user.savedJobs });
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ 
+      success: false, 
+      message: "User not found" 
+    });
+
+    const jobObjectId = new mongoose.Types.ObjectId(jobId);
+
+    if (action === "add" && !user.savedJobs.includes(jobObjectId)) {
+      user.savedJobs.push(jobObjectId);
+    } else if (action === "remove") {
+      user.savedJobs = user.savedJobs.filter(id => !id.equals(jobObjectId));
+    }
+
+    await user.save();
+    return res.status(200).json({ 
+      success: true,
+      message: "Saved jobs updated", 
+      savedJobs: user.savedJobs,
+      user: user
+    });
   } catch (error) {
-      console.error("Error updating saved jobs:", error);
-      return res.status(500).json({ message: "Server error" });
+    console.error("Error updating saved jobs:", error);
+    return res.status(500).json({ 
+      success: false, 
+      message: "Server error" 
+    });
   }
 };

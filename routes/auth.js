@@ -29,7 +29,7 @@ router.get('/user/:id', getUser);
 
 // Generic Update Route
 router.patch('/user/updateUserProfile', protect, updateUserProfile);
-router.put("/users/:userId/saved-jobs", updateSavedJobs);
+router.put("/users/:userId/saved-jobs", protect, updateSavedJobs);
 
 
 export default router; 
