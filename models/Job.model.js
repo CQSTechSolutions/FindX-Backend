@@ -50,6 +50,16 @@ const jobSchema = new mongoose.Schema({
         type: Number,
         required: true,
     },
+    jobSalaryType: {
+        type: String,
+        enum: ['Per Month', 'Per Annum', 'Per Week', 'Per Hour', 'Per Contract'],
+        default: 'Per Month',
+        required: true,
+    },
+    jobBanner: {
+        type: String,
+        default: '',
+    },
     jobIndustry: {
         type: String,
         required: true,

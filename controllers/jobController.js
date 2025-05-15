@@ -63,7 +63,7 @@ export const getJob = async (req, res, next) => {
 // Update job
 export const updateJob = async (req, res, next) => {
     try {
-        const { jobTitle, jobDescription, status } = req.body;
+        const { jobTitle, jobDescription, jobBanner, jobSalaryType, status } = req.body;
         
         let job = await Job.findById(req.params.id);
 
@@ -84,7 +84,7 @@ export const updateJob = async (req, res, next) => {
 
         job = await Job.findByIdAndUpdate(
             req.params.id,
-            { jobTitle, jobDescription, status },
+            { jobTitle, jobDescription, jobBanner, jobSalaryType, status },
             { new: true, runValidators: true }
         ).populate('postedBy', 'name email');
 
