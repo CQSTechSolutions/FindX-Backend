@@ -180,7 +180,7 @@ export const applyForJob = async (req, res, next) => {
 // Update application status
 export const updateApplicationStatus = async (req, res, next) => {
     try {
-        const { status } = req.body;
+        const { status, interviewDetails, rejectionReason, blockReason } = req.body;
         const { id, applicationId } = req.params;
 
         const job = await Job.findById(id);
@@ -208,7 +208,28 @@ export const updateApplicationStatus = async (req, res, next) => {
             });
         }
 
+        // Update status
         application.status = status;
+        
+        // Update specific fields based on action
+        if (status === 'Interview' && interviewDetails) {
+            application.interviewDetails = {
+                date: interviewDetails.date || null,
+                time: interviewDetails.time || '',
+                location: interviewDetails.location || '',
+                notes: interviewDetails.notes || ''
+            };
+        }
+        
+        if (status === 'Rejected' && rejectionReason) {
+            application.rejectionReason = rejectionReason;
+        }
+        
+        if (status === 'Blocked' && blockReason) {
+            application.isBlocked = true;
+            application.blockReason = blockReason;
+        }
+        
         await job.save();
 
         res.json({

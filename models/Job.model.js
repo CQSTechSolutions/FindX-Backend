@@ -7,13 +7,25 @@ const applicantSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['Pending', 'Reviewed', 'Shortlisted', 'Rejected'],
+        enum: ['Pending', 'Reviewed', 'Shortlisted', 'Rejected', 'Blocked', 'Interview'],
         default: 'Pending'
     },
     appliedOn: {
         type: Date,
         default: Date.now
-    }
+    },
+    interviewDetails: {
+        date: Date,
+        time: String,
+        location: String,
+        notes: String
+    },
+    rejectionReason: String,
+    isBlocked: {
+        type: Boolean,
+        default: false
+    },
+    blockReason: String
 }, {_id: true});
 
 const jobSchema = new mongoose.Schema({
