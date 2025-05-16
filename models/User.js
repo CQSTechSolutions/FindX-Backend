@@ -20,6 +20,22 @@ const externalLinksSchema = new mongoose.Schema({
     twitter_link: String
 }, {_id: true});
 
+const messagesFromEmployerSchema = new mongoose.Schema({
+    message: String,
+    sender: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Employer'
+    }
+}, {_id: true});
+
+const messagesToEmployerSchema = new mongoose.Schema({
+    message: String,
+    receiver: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Employer'
+    }
+}, {_id: true});
+
 const educationSchema = new mongoose.Schema({
     institute_name: String,
     course_name: String,
@@ -184,7 +200,15 @@ const userSchema = new mongoose.Schema({
     passwordResetExpire: {
         type: Date,
         select: false
-    }
+    },
+    messagesFromEmployer: {
+        type: [messagesFromEmployerSchema],
+        default: [],
+    },
+    messagesToEmployer: {
+        type: [messagesToEmployerSchema],
+        default: [],
+    },
 }, {timestamps: true});
 
 // Hash password before saving

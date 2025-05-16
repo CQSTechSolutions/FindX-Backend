@@ -1,6 +1,22 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
+const messagesFromUsersSchema = new mongoose.Schema({
+    message: String,
+    sender: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    }
+});
+
+const messagesToUsersSchema = new mongoose.Schema({
+    message: String,
+    receiver: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    }
+});
+
 const employerSchema = new mongoose.Schema({
     password: {
         type: String,
@@ -72,6 +88,14 @@ const employerSchema = new mongoose.Schema({
     messagesAllowedFrom: {
         type: [mongoose.Schema.Types.ObjectId],
         ref: 'User',
+        default: [],
+    },
+    messagesFromUsers: {
+        type: [messagesFromUsersSchema],
+        default: [],
+    },
+    messagesToUsers: {
+        type: [messagesToUsersSchema],
         default: [],
     },
     blockedApplicants: {
