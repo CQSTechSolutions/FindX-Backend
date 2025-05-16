@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import User from '../models/User.js';
 import Employer from '../models/employer.model.js';
+import Job from '../models/Job.model.js';
 
 // Create a new Message model
 const messageSchema = new mongoose.Schema({
@@ -124,6 +125,98 @@ export const getMessagesBetweenUsers = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: 'Failed to fetch messages'
+        });
+    }
+};
+
+// @desc    Get all conversations for a user
+// @route   GET /api/messages/conversations/:userId
+// @access  Private
+export const getUserConversations = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        
+        // Validate user ID
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid user ID'
+            });
+        }
+        
+        // Find all messages sent by or to the user
+        const messages = await Message.find({
+            $or: [
+                { from: userId, fromModel: 'User' },
+                { to: userId, toModel: 'User' }
+            ]
+        }).sort({ createdAt: -1 });
+        
+        // Extract unique employer IDs
+        const employerIds = new Set();
+        const conversationMap = new Map();
+        
+        // Process messages to get unique conversations
+        for (const message of messages) {
+            let employerId;
+            
+            if (message.fromModel === 'Employer') {
+                employerId = message.from;
+            } else if (message.toModel === 'Employer') {
+                employerId = message.to;
+            }
+            
+            if (employerId && !conversationMap.has(employerId.toString())) {
+                employerIds.add(employerId);
+                conversationMap.set(employerId.toString(), {
+                    lastMessage: message.content,
+                    lastMessageDate: message.createdAt,
+                    jobId: message.jobId
+                });
+            }
+        }
+        
+        // Get employer details
+        const employers = await Employer.find({
+            _id: { $in: Array.from(employerIds) }
+        });
+        
+        // Format conversations
+        const conversations = await Promise.all(
+            employers.map(async (employer) => {
+                const conversationData = conversationMap.get(employer._id.toString());
+                let jobTitle;
+                
+                if (conversationData.jobId) {
+                    try {
+                        const job = await Job.findById(conversationData.jobId);
+                        jobTitle = job?.jobTitle;
+                    } catch (error) {
+                        console.error('Error finding job:', error);
+                    }
+                }
+                
+                return {
+                    _id: employer._id,
+                    companyName: employer.companyName,
+                    companyLogo: employer.companyLogo,
+                    jobTitle: jobTitle,
+                    jobId: conversationData.jobId,
+                    lastMessage: conversationData.lastMessage,
+                    lastMessageDate: conversationData.lastMessageDate
+                };
+            })
+        );
+        
+        return res.status(200).json({
+            success: true,
+            conversations
+        });
+    } catch (error) {
+        console.error('Error fetching conversations:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to fetch conversations'
         });
     }
 }; 
