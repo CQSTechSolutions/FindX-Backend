@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.js';
 import jobRoutes from './routes/jobRoutes.js';
 import educationRoutes from './routes/education.js';
 import employerRoutes from './routes/employer.routes.js';
+import messageRoutes from './routes/messageRoutes.js';
 import errorHandler from './middleware/errorHandler.js';
 
 dotenv.config();
@@ -21,6 +22,7 @@ app.use(`/api/auth`, authRoutes);
 app.use(`/api/jobs`, jobRoutes);
 app.use(`/api/education`, educationRoutes);
 app.use(`/api/employer`, employerRoutes);
+app.use(`/api/messages`, messageRoutes);
 // Error handling middleware
 app.use(errorHandler);
 
