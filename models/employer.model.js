@@ -56,10 +56,6 @@ const employerSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
-    EmployerEmail: {
-        type: String,
-        required: true,
-    },
     EmployerDesignation: {
         type: String,
         required: true,
@@ -70,7 +66,7 @@ const employerSchema = new mongoose.Schema({
     },
     companyEmployerId: {
         type: String,
-        required: true,
+        required: false,
         unique: true,
     },
     totalPostedJobs: {

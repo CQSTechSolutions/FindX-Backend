@@ -7,6 +7,9 @@ dotenv.config();
 export const createAccount = async (req, res) => {
     const employer = req.body;
     try {
+        // Generate a unique employer ID based on company name
+        employer.companyEmployerId = `${employer.companyName.replace(/\s+/g, '').toLowerCase()}_${Date.now()}`;
+        
         const newEmployer = await Employer.create(employer);
         
         // Create JWT token
@@ -36,8 +39,7 @@ export const login = async (req, res) => {
     const loginData = req.body;
     try {
         const employer = await Employer.findOne({ 
-            companyEmployerId: loginData.companyEmployerId,
-            EmployerEmail: loginData.EmployerEmail 
+            EmployerName: loginData.EmployerName 
         }).select('+password');
 
         if (!employer) {
