@@ -13,6 +13,7 @@ export const searchUsers = async (req, res) => {
             location, 
             jobTypes, 
             workEnv, 
+            languages,
             keyword,
             limit = 10,
             page = 1
@@ -53,6 +54,12 @@ export const searchUsers = async (req, res) => {
             query.work_env_preferences = { $in: envArray };
         }
         
+        // Search by languages
+        if (languages) {
+            const languagesArray = languages.split(',').map(lang => lang.trim());
+            query.known_language = { $in: languagesArray };
+        }
+        
         // Search by keyword in name, skills, or dream job title
         if (keyword) {
             if (!query.$or) query.$or = [];
@@ -69,7 +76,7 @@ export const searchUsers = async (req, res) => {
         
         // Execute query with pagination
         const users = await User.find(query)
-            .select('name skills_and_capabilities highest_qualification dream_job_title preferred_job_types work_env_preferences resident_country relocation')
+            .select('name skills_and_capabilities highest_qualification dream_job_title preferred_job_types work_env_preferences resident_country relocation known_language')
             .skip(skip)
             .limit(parseInt(limit));
             
@@ -150,7 +157,7 @@ export const getSuggestedUsers = async (req, res) => {
                 { dream_job_title: { $regex: industry, $options: 'i' } }
             ]
         })
-        .select('name skills_and_capabilities highest_qualification dream_job_title preferred_job_types work_env_preferences resident_country')
+        .select('name skills_and_capabilities highest_qualification dream_job_title preferred_job_types work_env_preferences resident_country known_language')
         .limit(10);
         
         return res.status(200).json({
