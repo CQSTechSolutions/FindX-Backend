@@ -41,20 +41,57 @@ const jobSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
+    workspaceOption: {
+        type: String,
+        enum: ['On-site', 'Hybrid', 'Remote'],
+        required: true,
+    },
+    category: {
+        type: String,
+        required: true,
+    },
+    subcategory: {
+        type: String,
+        required: true,
+    },
+    workType: {
+        type: String,
+        enum: ['Full-time', 'Part-time', 'Contract', 'Casual'],
+        required: true,
+    },
+    payType: {
+        type: String,
+        enum: ['Hourly rate', 'Monthly salary', 'Annual salary', 'Annual plus commission'],
+        required: true,
+    },
+    payRange: {
+        currency: {
+            type: String,
+            required: true,
+        },
+        from: {
+            type: Number,
+            required: true,
+        },
+        to: {
+            type: Number,
+            required: true,
+        }
+    },
+    showSalaryOnAd: {
+        type: Boolean,
+        default: true,
+    },
     jobType: {
         type: String,
         enum: ['Full-Time', 'Part-Time', 'Contract', 'Temporary', 'Volunteer', 'Internship'],
-        required: true,
     },
     jobSalary: {
         type: Number,
-        required: true,
     },
     jobSalaryType: {
         type: String,
         enum: ['Per Month', 'Per Annum', 'Per Week', 'Per Hour', 'Per Contract'],
-        default: 'Per Month',
-        required: true,
     },
     jobBanner: {
         type: String,

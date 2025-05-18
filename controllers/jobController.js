@@ -6,6 +6,20 @@ export const createJob = async (req, res, next) => {
     try {
         const jobData = req.body;
         
+        // Set up pay range if using new format
+        if (jobData.currency && jobData.from && jobData.to) {
+            jobData.payRange = {
+                currency: jobData.currency,
+                from: jobData.from,
+                to: jobData.to
+            };
+            
+            // Remove individual fields to avoid duplication
+            delete jobData.currency;
+            delete jobData.from;
+            delete jobData.to;
+        }
+        
         const job = await Job.create(jobData);
 
         res.status(201).json({
