@@ -24,6 +24,13 @@ const employerSchema = new mongoose.Schema({
         minlength: 6,
         select: false,
     },
+    email: {
+        type: String,
+        required: true,
+        unique: true,
+        lowercase: true,
+        trim: true
+    },
     companyName: {
         type: String,
         required: true,
@@ -63,11 +70,6 @@ const employerSchema = new mongoose.Schema({
     EmployerPhone: {
         type: String,
         required: true,
-    },
-    companyEmployerId: {
-        type: String,
-        required: false,
-        unique: true,
     },
     totalPostedJobs: {
         type: Number,

@@ -7,6 +7,12 @@ dotenv.config();
 export const createAccount = async (req, res) => {
     const employer = req.body;
     try {
+        // Map EmployerEmail to email if it exists and email doesn't
+        if (employer.EmployerEmail && !employer.email) {
+            employer.email = employer.EmployerEmail;
+            delete employer.EmployerEmail;
+        }
+        
         // Generate a unique employer ID based on company name
         employer.companyEmployerId = `${employer.companyName.replace(/\s+/g, '').toLowerCase()}_${Date.now()}`;
         
@@ -39,7 +45,7 @@ export const login = async (req, res) => {
     const loginData = req.body;
     try {
         const employer = await Employer.findOne({ 
-            EmployerName: loginData.EmployerName 
+            email: loginData.email 
         }).select('+password');
 
         if (!employer) {
