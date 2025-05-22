@@ -77,20 +77,18 @@ const jobSchema = new mongoose.Schema({
         enum: ['Hourly rate', 'Monthly salary', 'Annual salary', 'Annual plus commission'],
         required: true,
     },
-    payRange: {
-        currency: {
-            type: String,
-            required: true,
-            trim: true
-        },
-        from: {
-            type: Number,
-            required: true,
-        },
-        to: {
-            type: Number,
-            required: true,
-        }
+    currency: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    from: {
+        type: Number,
+        required: true,
+    },
+    to: {
+        type: Number,
+        required: true,
     },
     showSalaryOnAd: {
         type: Boolean,
@@ -145,7 +143,7 @@ const jobSchema = new mongoose.Schema({
     // Premium Listing Options
     premiumListing: {
         type: Boolean,
-        default: false,
+        default: true,
     },
     immediateStart: {
         type: Boolean,
@@ -157,7 +155,7 @@ const jobSchema = new mongoose.Schema({
     },
     notificationOption: {
         type: String,
-        enum: ['both', 'email', 'sms', 'none'],
+        enum: ['both', 'email', 'app', 'none'],
         default: 'both',
     },
     
@@ -177,8 +175,8 @@ const jobSchema = new mongoose.Schema({
 
 // Add virtual property for full salary range display
 jobSchema.virtual('salaryDisplay').get(function() {
-    if (!this.payRange || !this.payRange.currency) return '';
-    return `${this.payRange.currency} ${this.payRange.from.toLocaleString()} - ${this.payRange.to.toLocaleString()} ${this.jobSalaryType || 'Per Month'}`;
+    if (!this.currency) return '';
+    return `${this.currency} ${this.from.toLocaleString()} - ${this.to.toLocaleString()} ${this.jobSalaryType || 'Per Month'}`;
 });
 
 // Ensure virtuals are included when converting to JSON

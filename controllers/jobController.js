@@ -6,19 +6,7 @@ export const createJob = async (req, res, next) => {
     try {
         const jobData = req.body;
         
-        // Set up pay range if using new format
-        if (jobData.currency && jobData.from && jobData.to) {
-            jobData.payRange = {
-                currency: jobData.currency,
-                from: jobData.from,
-                to: jobData.to
-            };
-            
-            // Remove individual fields to avoid duplication
-            delete jobData.currency;
-            delete jobData.from;
-            delete jobData.to;
-        }
+        // No need to set up pay range as currency, from, and to are now direct fields in the model
         
         const job = await Job.create(jobData);
 
@@ -77,7 +65,7 @@ export const getJob = async (req, res, next) => {
 // Update job
 export const updateJob = async (req, res, next) => {
     try {
-        const { jobTitle, jobDescription, jobBanner, jobSalaryType, status } = req.body;
+        const jobData = req.body;
         
         let job = await Job.findById(req.params.id);
 
@@ -98,7 +86,7 @@ export const updateJob = async (req, res, next) => {
 
         job = await Job.findByIdAndUpdate(
             req.params.id,
-            { jobTitle, jobDescription, jobBanner, jobSalaryType, status },
+            jobData,
             { new: true, runValidators: true }
         ).populate('postedBy', 'name email');
 
