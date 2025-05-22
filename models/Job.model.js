@@ -29,9 +29,11 @@ const applicantSchema = new mongoose.Schema({
 }, {_id: true});
 
 const jobSchema = new mongoose.Schema({
+    // Basic Job Information
     jobTitle: {
         type: String,
         required: true,
+        trim: true
     },
     jobDescription: {
         type: String,
@@ -44,6 +46,7 @@ const jobSchema = new mongoose.Schema({
     jobLocation: {
         type: String,
         required: true,
+        trim: true
     },
     workspaceOption: {
         type: String,
@@ -53,16 +56,36 @@ const jobSchema = new mongoose.Schema({
     category: {
         type: String,
         required: true,
+        trim: true
     },
     subcategory: {
         type: String,
         required: true,
+        trim: true
     },
+    
+    // Employment Details
     workType: {
         type: String,
         enum: ['Full-time', 'Part-time', 'Contract', 'Casual'],
         required: true,
     },
+    jobType: {
+        type: String,
+        enum: ['Full-Time', 'Part-Time', 'Contract', 'Temporary', 'Volunteer', 'Internship'],
+    },
+    jobIndustry: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    jobExperience: {
+        type: String,
+        enum: ['Entry', 'Mid', 'Senior', 'Lead'],
+        required: true,
+    },
+    
+    // Compensation Information
     payType: {
         type: String,
         enum: ['Hourly rate', 'Monthly salary', 'Annual salary', 'Annual plus commission'],
@@ -72,6 +95,7 @@ const jobSchema = new mongoose.Schema({
         currency: {
             type: String,
             required: true,
+            trim: true
         },
         from: {
             type: Number,
@@ -86,10 +110,6 @@ const jobSchema = new mongoose.Schema({
         type: Boolean,
         default: true,
     },
-    jobType: {
-        type: String,
-        enum: ['Full-Time', 'Part-Time', 'Contract', 'Temporary', 'Volunteer', 'Internship'],
-    },
     jobSalary: {
         type: Number,
     },
@@ -98,19 +118,8 @@ const jobSchema = new mongoose.Schema({
         enum: ['Per Month', 'Per Annum', 'Per Week', 'Per Hour', 'Per Contract'],
         default: 'Per Month',
     },
-    jobBanner: {
-        type: String,
-        default: '',
-    },
-    jobIndustry: {
-        type: String,
-        required: true,
-    },
-    jobExperience: {
-        type: String,
-        enum: ['Entry', 'Mid', 'Senior', 'Lead'],
-        required: true,
-    },
+    
+    // Skills and Keywords
     jobSkills: {
         type: [String],
         required: true,
@@ -123,6 +132,12 @@ const jobSchema = new mongoose.Schema({
         type: [String],
         default: [],
     },
+    
+    // Media Elements
+    jobBanner: {
+        type: String,
+        default: '',
+    },
     companyLogo: {
         type: String,
         default: '',
@@ -130,7 +145,10 @@ const jobSchema = new mongoose.Schema({
     videoLink: {
         type: String,
         default: '',
+        trim: true
     },
+    
+    // Application Questions and References
     jobQuestions: {
         type: [String],
         default: [],
@@ -138,7 +156,10 @@ const jobSchema = new mongoose.Schema({
     internalReference: {
         type: String,
         default: '',
+        trim: true
     },
+    
+    // Premium Listing Options
     premiumListing: {
         type: Boolean,
         default: false,
@@ -156,6 +177,8 @@ const jobSchema = new mongoose.Schema({
         enum: ['both', 'email', 'sms', 'none'],
         default: 'both',
     },
+    
+    // Relationship and Status Fields
     postedBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Employer',
@@ -168,6 +191,16 @@ const jobSchema = new mongoose.Schema({
         default: 'Open'
     }
 }, { timestamps: true });
+
+// Add virtual property for full salary range display
+jobSchema.virtual('salaryDisplay').get(function() {
+    if (!this.payRange || !this.payRange.currency) return '';
+    return `${this.payRange.currency} ${this.payRange.from.toLocaleString()} - ${this.payRange.to.toLocaleString()} ${this.jobSalaryType || 'Per Month'}`;
+});
+
+// Ensure virtuals are included when converting to JSON
+jobSchema.set('toJSON', { virtuals: true });
+jobSchema.set('toObject', { virtuals: true });
 
 const Job = mongoose.model('Job', jobSchema);
 
