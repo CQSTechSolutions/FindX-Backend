@@ -70,11 +70,6 @@ const jobSchema = new mongoose.Schema({
         enum: ['Full-time', 'Part-time', 'Contract', 'Casual'],
         required: true,
     },
-    jobExperience: {
-        type: String,
-        enum: ['Entry', 'Mid', 'Senior', 'Lead'],
-        required: true,
-    },
     
     // Compensation Information
     payType: {
@@ -110,11 +105,11 @@ const jobSchema = new mongoose.Schema({
     // Skills and Keywords
     jobSkills: {
         type: [String],
-        required: true,
+        default: [],
     },
     jobKeywords: {
         type: [String],
-        required: true,
+        default: [],
     },
     sellingPoints: {
         type: [String],
