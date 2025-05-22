@@ -70,15 +70,6 @@ const jobSchema = new mongoose.Schema({
         enum: ['Full-time', 'Part-time', 'Contract', 'Casual'],
         required: true,
     },
-    jobType: {
-        type: String,
-        enum: ['Full-Time', 'Part-Time', 'Contract', 'Temporary', 'Volunteer', 'Internship'],
-    },
-    jobIndustry: {
-        type: String,
-        required: true,
-        trim: true
-    },
     jobExperience: {
         type: String,
         enum: ['Entry', 'Mid', 'Senior', 'Lead'],
@@ -109,9 +100,6 @@ const jobSchema = new mongoose.Schema({
     showSalaryOnAd: {
         type: Boolean,
         default: true,
-    },
-    jobSalary: {
-        type: Number,
     },
     jobSalaryType: {
         type: String,
