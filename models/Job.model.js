@@ -37,6 +37,10 @@ const jobSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
+    jobSummary: {
+        type: String,
+        default: '',
+    },
     jobLocation: {
         type: String,
         required: true,
@@ -92,6 +96,7 @@ const jobSchema = new mongoose.Schema({
     jobSalaryType: {
         type: String,
         enum: ['Per Month', 'Per Annum', 'Per Week', 'Per Hour', 'Per Contract'],
+        default: 'Per Month',
     },
     jobBanner: {
         type: String,
@@ -110,16 +115,53 @@ const jobSchema = new mongoose.Schema({
         type: [String],
         required: true,
     },
+    jobKeywords: {
+        type: [String],
+        required: true,
+    },
+    sellingPoints: {
+        type: [String],
+        default: [],
+    },
+    companyLogo: {
+        type: String,
+        default: '',
+    },
+    videoLink: {
+        type: String,
+        default: '',
+    },
+    jobQuestions: {
+        type: [String],
+        default: [],
+    },
+    internalReference: {
+        type: String,
+        default: '',
+    },
+    premiumListing: {
+        type: Boolean,
+        default: false,
+    },
+    immediateStart: {
+        type: Boolean,
+        default: false,
+    },
+    referencesRequired: {
+        type: Boolean,
+        default: false,
+    },
+    notificationOption: {
+        type: String,
+        enum: ['both', 'email', 'sms', 'none'],
+        default: 'both',
+    },
     postedBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Employer',
         required: true
     },
     applicants: [applicantSchema],
-    jobKeywords: {
-        type: [String],
-        required: true,
-    },
     status: {
         type: String,
         enum: ['Open', 'Closed'],
