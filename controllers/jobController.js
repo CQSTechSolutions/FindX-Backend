@@ -134,6 +134,7 @@ export const deleteJob = async (req, res, next) => {
 // Apply for a job
 export const applyForJob = async (req, res, next) => {
     try {
+        const { questionResponses } = req.body;
         const job = await Job.findById(req.params.id);
 
         if (!job) {
@@ -163,12 +164,63 @@ export const applyForJob = async (req, res, next) => {
             });
         }
 
+        // Validate question responses if job has application questions
+        if (job.applicationQuestions && job.applicationQuestions.length > 0) {
+            if (!questionResponses || questionResponses.length !== job.applicationQuestions.length) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Please answer all application questions'
+                });
+            }
+
+            // Validate each response
+            for (let i = 0; i < job.applicationQuestions.length; i++) {
+                const question = job.applicationQuestions[i];
+                const response = questionResponses[i];
+
+                if (!response || !response.selectedOption) {
+                    return res.status(400).json({
+                        success: false,
+                        message: `Please answer question ${i + 1}`
+                    });
+                }
+
+                // Validate that selected option is one of the available options
+                if (!question.options.includes(response.selectedOption)) {
+                    return res.status(400).json({
+                        success: false,
+                        message: `Invalid option selected for question ${i + 1}`
+                    });
+                }
+            }
+        }
+
+        // Add applicant to job
         job.applicants.push({
             user: req.user.id,
             status: 'Pending'
         });
 
         await job.save();
+
+        // Create application response record if there are questions
+        if (job.applicationQuestions && job.applicationQuestions.length > 0 && questionResponses) {
+            const ApplicationResponse = (await import('../models/application_response.model.js')).default;
+            
+            const applicationResponse = new ApplicationResponse({
+                userId: req.user.id,
+                jobId: job._id,
+                jobPostedBy: job.postedBy,
+                questionResponses: questionResponses.map((response, index) => ({
+                    question: job.applicationQuestions[index].question,
+                    selectedOption: response.selectedOption,
+                    options: job.applicationQuestions[index].options
+                })),
+                status: 'pending'
+            });
+
+            await applicationResponse.save();
+        }
 
         res.json({
             success: true,
@@ -353,6 +405,73 @@ export const updateSavedJobs = async (req, res, next) => {
             success: true,
             message: `Job ${action === 'add' ? 'saved' : 'removed'} successfully`,
             user
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Get application responses for a job (for employers)
+export const getApplicationResponses = async (req, res, next) => {
+    try {
+        const { jobId } = req.params;
+        
+        // Verify job exists and user owns it
+        const job = await Job.findById(jobId);
+        if (!job) {
+            return res.status(404).json({
+                success: false,
+                message: 'Job not found'
+            });
+        }
+
+        // Check if user is job owner (works for both regular users and employers)
+        const userId = req.user?._id || req.employer?._id;
+        if (job.postedBy.toString() !== userId.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: 'You are not authorized to view these application responses'
+            });
+        }
+
+        const ApplicationResponse = (await import('../models/application_response.model.js')).default;
+        
+        const responses = await ApplicationResponse.find({ jobId })
+            .populate('userId', 'name email')
+            .sort('-submittedAt');
+
+        res.json({
+            success: true,
+            count: responses.length,
+            responses
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Get user's application response for a specific job
+export const getUserApplicationResponse = async (req, res, next) => {
+    try {
+        const { jobId } = req.params;
+        
+        const ApplicationResponse = (await import('../models/application_response.model.js')).default;
+        
+        const response = await ApplicationResponse.findOne({
+            userId: req.user.id,
+            jobId: jobId
+        }).populate('jobId', 'jobTitle applicationQuestions');
+
+        if (!response) {
+            return res.status(404).json({
+                success: false,
+                message: 'Application response not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            response
         });
     } catch (error) {
         next(error);

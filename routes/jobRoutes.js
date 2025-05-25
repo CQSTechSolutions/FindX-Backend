@@ -9,7 +9,9 @@ import {
     updateApplicationStatus,
     getMyPostedJobs,
     getMyApplications,
-    updateSavedJobs
+    updateSavedJobs,
+    getApplicationResponses,
+    getUserApplicationResponse
 } from '../controllers/jobController.js';
 import { protect } from '../middleware/auth.js';
 import { protectEmployer } from '../middleware/employerAuth.js';
@@ -31,5 +33,9 @@ router.put('/:id', protectEmployer, updateJob);
 router.delete('/:id', protectEmployer, deleteJob);
 router.put('/:id/applications/:applicationId', protectEmployer, updateApplicationStatus);
 router.get('/my/posted', protectEmployer, getMyPostedJobs);
+
+// Application responses routes
+router.get('/:jobId/responses', protectEmployer, getApplicationResponses);
+router.get('/:jobId/my-response', protect, getUserApplicationResponse);
 
 export default router; 

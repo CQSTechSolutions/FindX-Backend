@@ -134,6 +134,21 @@ const jobSchema = new mongoose.Schema({
         type: [String],
         default: [],
     },
+    // Structured questions with multiple choice options
+    applicationQuestions: [{
+        question: {
+            type: String,
+            required: true
+        },
+        options: [{
+            type: String,
+            required: true
+        }],
+        required: {
+            type: Boolean,
+            default: true
+        }
+    }],
     internalReference: {
         type: String,
         default: '',
