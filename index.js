@@ -7,6 +7,7 @@ import jobRoutes from './routes/jobRoutes.js';
 import educationRoutes from './routes/education.js';
 import employerRoutes from './routes/employer.routes.js';
 import userSearchRoutes from './routes/userSearch.routes.js';
+import messageRoutes from './routes/messageRoutes.js';
 import errorHandler from './middleware/errorHandler.js';
 import {createServer} from "node:http";
 import { startSocketServer } from './socket.js';
@@ -29,6 +30,7 @@ app.use(`/api/jobs`, jobRoutes);
 app.use(`/api/education`, educationRoutes);
 app.use(`/api/employer`, employerRoutes);
 app.use(`/api/usersearch`, userSearchRoutes);
+app.use(`/api/messages`, messageRoutes);
 // Error handling middleware
 app.use(errorHandler);
 
