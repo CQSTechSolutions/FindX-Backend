@@ -79,16 +79,25 @@ const jobSchema = new mongoose.Schema({
     },
     currency: {
         type: String,
-        required: true,
+        required: function() {
+            // Only require for new documents, not for updates
+            return this.isNew;
+        },
         trim: true
     },
     from: {
         type: Number,
-        required: true,
+        required: function() {
+            // Only require for new documents, not for updates
+            return this.isNew;
+        },
     },
     to: {
         type: Number,
-        required: true,
+        required: function() {
+            // Only require for new documents, not for updates
+            return this.isNew;
+        },
     },
     showSalaryOnAd: {
         type: Boolean,

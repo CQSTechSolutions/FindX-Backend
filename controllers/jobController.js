@@ -135,6 +135,13 @@ export const deleteJob = async (req, res, next) => {
 export const applyForJob = async (req, res, next) => {
     try {
         const { questionResponses } = req.body;
+        console.log('Job application request:', {
+            jobId: req.params.id,
+            userId: req.user.id,
+            hasQuestionResponses: !!questionResponses,
+            questionResponsesLength: questionResponses?.length || 0
+        });
+        
         const job = await Job.findById(req.params.id);
 
         if (!job) {
@@ -203,23 +210,35 @@ export const applyForJob = async (req, res, next) => {
 
         await job.save();
 
+        console.log('Successfully added applicant to job:', {
+            jobId: req.params.id,
+            userId: req.user.id,
+            totalApplicants: job.applicants.length
+        });
+
         // Create application response record if there are questions
         if (job.applicationQuestions && job.applicationQuestions.length > 0 && questionResponses) {
-            const ApplicationResponse = (await import('../models/application_response.model.js')).default;
-            
-            const applicationResponse = new ApplicationResponse({
-                userId: req.user.id,
-                jobId: job._id,
-                jobPostedBy: job.postedBy,
-                questionResponses: questionResponses.map((response, index) => ({
-                    question: job.applicationQuestions[index].question,
-                    selectedOption: response.selectedOption,
-                    options: job.applicationQuestions[index].options
-                })),
-                status: 'pending'
-            });
+            try {
+                const ApplicationResponse = (await import('../models/application_response.model.js')).default;
+                
+                const applicationResponse = new ApplicationResponse({
+                    userId: req.user.id,
+                    jobId: job._id,
+                    jobPostedBy: job.postedBy,
+                    questionResponses: questionResponses.map((response, index) => ({
+                        question: job.applicationQuestions[index].question,
+                        selectedOption: response.selectedOption,
+                        options: job.applicationQuestions[index].options
+                    })),
+                    status: 'pending'
+                });
 
-            await applicationResponse.save();
+                await applicationResponse.save();
+                console.log('Application response saved successfully');
+            } catch (responseError) {
+                console.error('Error saving application response:', responseError);
+                // Don't fail the entire application if response saving fails
+            }
         }
 
         res.json({
@@ -227,6 +246,21 @@ export const applyForJob = async (req, res, next) => {
             message: 'Application submitted successfully'
         });
     } catch (error) {
+        console.error('Error in applyForJob:', {
+            jobId: req.params.id,
+            userId: req.user?.id,
+            error: error.message,
+            stack: error.stack
+        });
+        
+        // Handle specific validation errors
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({
+                success: false,
+                message: 'Validation error: ' + error.message
+            });
+        }
+        
         next(error);
     }
 };
