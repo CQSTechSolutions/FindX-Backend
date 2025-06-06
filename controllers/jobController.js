@@ -329,6 +329,55 @@ export const updateApplicationStatus = async (req, res, next) => {
     }
 };
 
+// Update job status only
+export const updateJobStatus = async (req, res, next) => {
+    try {
+        const { status } = req.body;
+        const { id } = req.params;
+
+        // Validate status
+        if (!status || !['Open', 'Closed'].includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid status. Status must be either "Open" or "Closed"'
+            });
+        }
+
+        const job = await Job.findById(id);
+
+        if (!job) {
+            return res.status(404).json({
+                success: false,
+                message: 'Job not found'
+            });
+        }
+
+        // Check if user is job owner
+        if (job.postedBy.toString() !== req.user.id) {
+            return res.status(403).json({
+                success: false,
+                message: 'You are not authorized to update this job status'
+            });
+        }
+
+        // Update only the status field
+        job.status = status;
+        await job.save();
+
+        res.json({
+            success: true,
+            message: `Job status updated to ${status} successfully`,
+            job: {
+                _id: job._id,
+                status: job.status,
+                jobTitle: job.jobTitle
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 // Get my posted jobs
 export const getMyPostedJobs = async (req, res, next) => {
     try {

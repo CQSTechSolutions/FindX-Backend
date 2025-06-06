@@ -7,6 +7,7 @@ import {
     deleteJob,
     applyForJob,
     updateApplicationStatus,
+    updateJobStatus,
     getMyPostedJobs,
     getMyApplications,
     updateSavedJobs,
@@ -30,6 +31,7 @@ router.put('/users/:userId/saved-jobs', protect, updateSavedJobs);
 // Protected employer routes
 router.post('/', protectEmployer, createJob);
 router.put('/:id', protectEmployer, updateJob);
+router.put('/:id/status', protectEmployer, updateJobStatus);
 router.delete('/:id', protectEmployer, deleteJob);
 router.put('/:id/applications/:applicationId', protectEmployer, updateApplicationStatus);
 router.get('/my/posted', protectEmployer, getMyPostedJobs);
