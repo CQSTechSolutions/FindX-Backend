@@ -76,8 +76,8 @@ export const updateJob = async (req, res, next) => {
             });
         }
 
-        // Check if user is job owner
-        if (job.postedBy.toString() !== req.user.id) {
+        // Check if employer is job owner
+        if (job.postedBy.toString() !== req.employer._id.toString()) {
             return res.status(403).json({
                 success: false,
                 message: 'You are not authorized to update this job'
@@ -112,8 +112,8 @@ export const deleteJob = async (req, res, next) => {
             });
         }
 
-        // Check if user is job owner
-        if (job.postedBy.toString() !== req.user.id) {
+        // Check if employer is job owner
+        if (job.postedBy.toString() !== req.employer._id.toString()) {
             return res.status(403).json({
                 success: false,
                 message: 'You are not authorized to delete this job'
@@ -280,8 +280,8 @@ export const updateApplicationStatus = async (req, res, next) => {
             });
         }
 
-        // Check if user is job owner
-        if (job.postedBy.toString() !== req.user.id) {
+        // Check if employer is job owner
+        if (job.postedBy.toString() !== req.employer._id.toString()) {
             return res.status(403).json({
                 success: false,
                 message: 'You are not authorized to update application status'
@@ -352,8 +352,8 @@ export const updateJobStatus = async (req, res, next) => {
             });
         }
 
-        // Check if user is job owner
-        if (job.postedBy.toString() !== req.user.id) {
+        // Check if employer is job owner
+        if (job.postedBy.toString() !== req.employer._id.toString()) {
             return res.status(403).json({
                 success: false,
                 message: 'You are not authorized to update this job status'
