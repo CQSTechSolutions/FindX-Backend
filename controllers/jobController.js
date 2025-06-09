@@ -176,7 +176,7 @@ export const applyForJob = async (req, res, next) => {
             if (!questionResponses || questionResponses.length !== job.applicationQuestions.length) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Please answer all application questions'
+                    message: 'Please provide responses for all application questions'
                 });
             }
 
@@ -185,15 +185,16 @@ export const applyForJob = async (req, res, next) => {
                 const question = job.applicationQuestions[i];
                 const response = questionResponses[i];
 
-                if (!response || !response.selectedOption) {
+                // Only require answers for mandatory questions
+                if (question.required && (!response || !response.selectedOption)) {
                     return res.status(400).json({
                         success: false,
-                        message: `Please answer question ${i + 1}`
+                        message: `Please answer required question ${i + 1}: "${question.question}"`
                     });
                 }
 
-                // Validate that selected option is one of the available options
-                if (!question.options.includes(response.selectedOption)) {
+                // If response is provided, validate that selected option is one of the available options
+                if (response && response.selectedOption && !question.options.includes(response.selectedOption)) {
                     return res.status(400).json({
                         success: false,
                         message: `Invalid option selected for question ${i + 1}`

@@ -158,6 +158,16 @@ const jobSchema = new mongoose.Schema({
             default: true
         }
     }],
+    // Questions marked as mandatory by employer
+    mandatoryQuestions: {
+        type: [String],
+        default: [],
+    },
+    // Selected options for each question (employer can choose which options to show)
+    selectedOptions: {
+        type: mongoose.Schema.Types.Mixed,
+        default: {},
+    },
     internalReference: {
         type: String,
         default: '',
