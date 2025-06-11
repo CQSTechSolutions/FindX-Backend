@@ -173,10 +173,18 @@ export const applyForJob = async (req, res, next) => {
 
         // Validate question responses if job has application questions
         if (job.applicationQuestions && job.applicationQuestions.length > 0) {
-            if (!questionResponses || questionResponses.length !== job.applicationQuestions.length) {
+            // Check if questionResponses array exists and has correct length
+            if (!questionResponses) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Please provide responses for all application questions'
+                    message: 'Please provide responses for application questions'
+                });
+            }
+
+            if (questionResponses.length !== job.applicationQuestions.length) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Expected ${job.applicationQuestions.length} responses, but received ${questionResponses.length}`
                 });
             }
 
@@ -185,8 +193,15 @@ export const applyForJob = async (req, res, next) => {
                 const question = job.applicationQuestions[i];
                 const response = questionResponses[i];
 
+                console.log(`Validating question ${i + 1}:`, {
+                    question: question.question,
+                    required: question.required,
+                    response: response,
+                    selectedOption: response?.selectedOption
+                });
+
                 // Only require answers for mandatory questions
-                if (question.required && (!response || !response.selectedOption)) {
+                if (question.required && (!response || !response.selectedOption || response.selectedOption.trim() === '')) {
                     return res.status(400).json({
                         success: false,
                         message: `Please answer required question ${i + 1}: "${question.question}"`
@@ -194,10 +209,10 @@ export const applyForJob = async (req, res, next) => {
                 }
 
                 // If response is provided, validate that selected option is one of the available options
-                if (response && response.selectedOption && !question.options.includes(response.selectedOption)) {
+                if (response && response.selectedOption && response.selectedOption.trim() !== '' && !question.options.includes(response.selectedOption)) {
                     return res.status(400).json({
                         success: false,
-                        message: `Invalid option selected for question ${i + 1}`
+                        message: `Invalid option selected for question ${i + 1}. Selected: "${response.selectedOption}", Available: ${question.options.join(', ')}`
                     });
                 }
             }
@@ -216,6 +231,20 @@ export const applyForJob = async (req, res, next) => {
                 selectedOption: response.selectedOption,
                 options: job.applicationQuestions[index].options
             }));
+            
+            console.log('Adding question responses to applicant:', {
+                jobId: req.params.id,
+                userId: req.user.id,
+                questionResponsesCount: applicantData.questionResponses.length,
+                questionResponses: applicantData.questionResponses
+            });
+        } else {
+            console.log('No question responses to add:', {
+                jobId: req.params.id,
+                userId: req.user.id,
+                hasApplicationQuestions: !!(job.applicationQuestions && job.applicationQuestions.length > 0),
+                hasQuestionResponses: !!questionResponses
+            });
         }
 
         // Add applicant to job
@@ -226,7 +255,8 @@ export const applyForJob = async (req, res, next) => {
         console.log('Successfully added applicant to job:', {
             jobId: req.params.id,
             userId: req.user.id,
-            totalApplicants: job.applicants.length
+            totalApplicants: job.applicants.length,
+            newApplicant: job.applicants[job.applicants.length - 1] // Show the newly added applicant
         });
 
         // Create application response record if there are questions
