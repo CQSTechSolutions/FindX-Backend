@@ -203,11 +203,23 @@ export const applyForJob = async (req, res, next) => {
             }
         }
 
-        // Add applicant to job
-        job.applicants.push({
+        // Prepare applicant data
+        const applicantData = {
             user: req.user.id,
             status: 'Pending'
-        });
+        };
+
+        // Add question responses if they exist
+        if (job.applicationQuestions && job.applicationQuestions.length > 0 && questionResponses) {
+            applicantData.questionResponses = questionResponses.map((response, index) => ({
+                question: job.applicationQuestions[index].question,
+                selectedOption: response.selectedOption,
+                options: job.applicationQuestions[index].options
+            }));
+        }
+
+        // Add applicant to job
+        job.applicants.push(applicantData);
 
         await job.save();
 

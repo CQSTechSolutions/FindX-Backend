@@ -25,7 +25,12 @@ const applicantSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
-    blockReason: String
+    blockReason: String,
+    questionResponses: [{
+        question: String,
+        selectedOption: String,
+        options: [String]
+    }]
 }, {_id: true});
 
 const jobSchema = new mongoose.Schema({
