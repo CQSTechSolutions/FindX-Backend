@@ -173,6 +173,12 @@ export const applyForJob = async (req, res, next) => {
 
         // Validate question responses if job has application questions
         if (job.applicationQuestions && job.applicationQuestions.length > 0) {
+            console.log('Validating application questions:', {
+                applicationQuestionsCount: job.applicationQuestions.length,
+                questionResponses: questionResponses,
+                questionResponsesLength: questionResponses?.length || 0
+            });
+
             // Check if questionResponses array exists and has correct length
             if (!questionResponses) {
                 return res.status(400).json({
@@ -197,7 +203,8 @@ export const applyForJob = async (req, res, next) => {
                     question: question.question,
                     required: question.required,
                     response: response,
-                    selectedOption: response?.selectedOption
+                    selectedOption: response?.selectedOption,
+                    availableOptions: question.options
                 });
 
                 // Only require answers for mandatory questions
@@ -225,25 +232,42 @@ export const applyForJob = async (req, res, next) => {
         };
 
         // Add question responses if they exist
-        if (job.applicationQuestions && job.applicationQuestions.length > 0 && questionResponses) {
-            applicantData.questionResponses = questionResponses.map((response, index) => ({
-                question: job.applicationQuestions[index].question,
-                selectedOption: response.selectedOption,
-                options: job.applicationQuestions[index].options
-            }));
+        if (job.applicationQuestions && job.applicationQuestions.length > 0 && questionResponses && questionResponses.length > 0) {
+            // Filter out empty responses and only include responses with valid selected options
+            const validResponses = questionResponses
+                .map((response, index) => ({
+                    question: job.applicationQuestions[index].question,
+                    selectedOption: response.selectedOption,
+                    options: job.applicationQuestions[index].options
+                }))
+                .filter(response => response.selectedOption && response.selectedOption.trim() !== '');
             
-            console.log('Adding question responses to applicant:', {
-                jobId: req.params.id,
-                userId: req.user.id,
-                questionResponsesCount: applicantData.questionResponses.length,
-                questionResponses: applicantData.questionResponses
-            });
+            if (validResponses.length > 0) {
+                applicantData.questionResponses = validResponses;
+                
+                console.log('Adding question responses to applicant:', {
+                    jobId: req.params.id,
+                    userId: req.user.id,
+                    questionResponsesCount: applicantData.questionResponses.length,
+                    questionResponses: applicantData.questionResponses,
+                    originalResponsesCount: questionResponses.length,
+                    filteredValidResponses: validResponses.length
+                });
+            } else {
+                console.log('No valid question responses found (all responses were empty):', {
+                    jobId: req.params.id,
+                    userId: req.user.id,
+                    originalResponses: questionResponses
+                });
+            }
         } else {
             console.log('No question responses to add:', {
                 jobId: req.params.id,
                 userId: req.user.id,
                 hasApplicationQuestions: !!(job.applicationQuestions && job.applicationQuestions.length > 0),
-                hasQuestionResponses: !!questionResponses
+                hasQuestionResponses: !!questionResponses,
+                questionResponsesLength: questionResponses?.length || 0,
+                questionResponses: questionResponses
             });
         }
 
@@ -600,6 +624,61 @@ export const getUserApplicationResponse = async (req, res, next) => {
             response
         });
     } catch (error) {
+        next(error);
+    }
+};
+
+// Fix empty question responses for existing applicants
+export const fixEmptyQuestionResponses = async (req, res, next) => {
+    try {
+        console.log('Starting fix for empty question responses...');
+        
+        // Find all jobs with application questions
+        const jobsWithQuestions = await Job.find({
+            'applicationQuestions.0': { $exists: true }
+        });
+        
+        let fixedCount = 0;
+        let totalApplicants = 0;
+        
+        for (const job of jobsWithQuestions) {
+            console.log(`Processing job: ${job.jobTitle} (${job._id})`);
+            
+            // Check each applicant in this job
+            for (const applicant of job.applicants) {
+                totalApplicants++;
+                
+                // If applicant has empty questionResponses array but job has questions
+                if ((!applicant.questionResponses || applicant.questionResponses.length === 0) && 
+                    job.applicationQuestions && job.applicationQuestions.length > 0) {
+                    
+                    console.log(`Found applicant ${applicant.user} with empty responses for job with ${job.applicationQuestions.length} questions`);
+                    
+                    // Remove the empty questionResponses array to avoid confusion
+                    applicant.questionResponses = undefined;
+                    fixedCount++;
+                }
+            }
+            
+            // Save the job if any changes were made
+            if (fixedCount > 0) {
+                await job.save();
+            }
+        }
+        
+        console.log(`Fix completed. Fixed ${fixedCount} applicants out of ${totalApplicants} total applicants.`);
+        
+        res.json({
+            success: true,
+            message: `Fixed ${fixedCount} applicants with empty question responses`,
+            data: {
+                fixedCount,
+                totalApplicants,
+                jobsProcessed: jobsWithQuestions.length
+            }
+        });
+    } catch (error) {
+        console.error('Error fixing empty question responses:', error);
         next(error);
     }
 }; 

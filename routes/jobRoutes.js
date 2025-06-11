@@ -12,7 +12,8 @@ import {
     getMyApplications,
     updateSavedJobs,
     getApplicationResponses,
-    getUserApplicationResponse
+    getUserApplicationResponse,
+    fixEmptyQuestionResponses
 } from '../controllers/jobController.js';
 import { protect } from '../middleware/auth.js';
 import { protectEmployer } from '../middleware/employerAuth.js';
@@ -39,5 +40,9 @@ router.get('/my/posted', protectEmployer, getMyPostedJobs);
 // Application responses routes
 router.get('/:jobId/responses', protectEmployer, getApplicationResponses);
 router.get('/:jobId/my-response', protect, getUserApplicationResponse);
+
+// Admin/debug routes - temporary for debugging
+router.get('/admin/fix-empty-responses', fixEmptyQuestionResponses);
+router.post('/admin/fix-empty-responses', protectEmployer, fixEmptyQuestionResponses);
 
 export default router; 
