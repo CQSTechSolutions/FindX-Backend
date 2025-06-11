@@ -53,6 +53,19 @@ export const getJob = async (req, res, next) => {
             });
         }
 
+        // Debug logging to help identify the issue
+        console.log('Job retrieved:', {
+            jobId: req.params.id,
+            jobTitle: job.jobTitle,
+            applicantsCount: job.applicants?.length || 0,
+            applicants: job.applicants?.map(applicant => ({
+                _id: applicant._id,
+                user: applicant.user,
+                status: applicant.status,
+                appliedOn: applicant.appliedOn
+            })) || []
+        });
+
         res.json({
             success: true,
             job
