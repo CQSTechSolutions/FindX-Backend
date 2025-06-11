@@ -161,6 +161,12 @@ export const getConversationHistory = async (req, res, next) => {
     try {
         const { userId1, userId2, jobId } = req.params;
         
+        console.log('Getting conversation history:', {
+            userId1,
+            userId2, 
+            jobId
+        });
+        
         // Validate job exists
         const job = await Job.findById(jobId);
         if (!job) {
@@ -169,6 +175,10 @@ export const getConversationHistory = async (req, res, next) => {
                 message: 'Job not found'
             });
         }
+        
+        // Find all messages for this job first (for debugging)
+        const allJobMessages = await Message.find({ jobId: jobId });
+        console.log('All messages for this job:', allJobMessages.length);
         
         // Find messages between the two users for this specific job
         const messages = await Message.find({
@@ -190,6 +200,17 @@ export const getConversationHistory = async (req, res, next) => {
         })
         .populate('jobId', 'jobTitle')
         .sort({ createdAt: 1 });
+        
+        console.log('Found messages between users:', messages.length);
+        console.log('Messages details:', messages.map(m => ({
+            _id: m._id,
+            from: m.from,
+            to: m.to,
+            fromModel: m.fromModel,
+            toModel: m.toModel,
+            content: m.content.substring(0, 50),
+            createdAt: m.createdAt
+        })));
         
         res.json({
             success: true,
