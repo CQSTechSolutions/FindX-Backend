@@ -6,6 +6,7 @@ import {
     getAllEmployers, 
     getCurrentEmployer,
     setMessagingStatus,
+    enableMessaging,
     updatePricingPlan
 } from "../controllers/employer.controller.js";
 import { protectEmployer } from "../middleware/employerAuth.js";
@@ -23,6 +24,7 @@ router.get("/me", getCurrentEmployer);
 router.get("/getEmployer/:employerId", getEmployer);
 router.get("/getAllEmployers", getAllEmployers);
 router.patch("/updateMessagingStatus", setMessagingStatus);
+router.patch("/enable-messaging", enableMessaging);
 router.patch("/updatePricingPlan", updatePricingPlan);
 
 export default router;

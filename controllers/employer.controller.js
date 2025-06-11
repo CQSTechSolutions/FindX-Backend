@@ -171,6 +171,43 @@ export const setMessagingStatus = async (req, res) => {
     }
 }
 
+export const enableMessaging = async (req, res) => {
+    try {
+        const { employerId } = req.body;
+        
+        if (!employerId) {
+            return res.status(400).json({ 
+                success: false,
+                message: "Employer ID is required" 
+            });
+        }
+
+        const updatedEmployer = await Employer.findByIdAndUpdate(
+            employerId,
+            { messagesAllowed: true },
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedEmployer) {
+            return res.status(404).json({ 
+                success: false,
+                message: "Employer not found" 
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            employer: updatedEmployer,
+            message: "Messaging enabled successfully"
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            success: false,
+            message: error.message 
+        });
+    }
+}
+
 export const updatePricingPlan = async (req, res) => {
     try {
         const { pricingPlan, empId } = req.body;
