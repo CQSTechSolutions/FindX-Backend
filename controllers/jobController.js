@@ -26,7 +26,7 @@ export const getAllJobs = async (req, res, next) => {
         // TODO: Might have to block the poplulate method.
         // FIXME: Update the method controller to make it work.
         const jobs = await Job.find()
-            .populate('postedBy', 'name email')
+            .populate('postedBy', 'companyName email companyLogo')
             .sort('-createdAt');
 
         res.json({
@@ -43,7 +43,7 @@ export const getAllJobs = async (req, res, next) => {
 export const getJob = async (req, res, next) => {
     try {
         const job = await Job.findById(req.params.id)
-            .populate('postedBy', 'name email')
+            .populate('postedBy', 'companyName email companyLogo')
             .populate('applicants.user', 'name email');
 
         if (!job) {
@@ -101,7 +101,7 @@ export const updateJob = async (req, res, next) => {
             req.params.id,
             jobData,
             { new: true, runValidators: true }
-        ).populate('postedBy', 'name email');
+        ).populate('postedBy', 'companyName email companyLogo');
 
         res.json({
             success: true,
@@ -495,7 +495,7 @@ export const getMyApplications = async (req, res, next) => {
     try {
         const jobs = await Job.find({
             'applicants.user': req.user.id
-        }).populate('postedBy', 'name email');
+        }).populate('postedBy', 'companyName email companyLogo');
 
         const applications = jobs.map(job => ({
             job: {
