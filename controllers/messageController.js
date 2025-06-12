@@ -91,13 +91,26 @@ export const getUserConversations = async (req, res, next) => {
             refPath: 'toModel',
             select: 'name email companyName'
         })
+        .populate({
+            path: 'jobId',
+            populate: {
+                path: 'postedBy',
+                model: 'Employer',
+                select: 'messagesAllowed companyName'
+            }
+        })
         .sort({ createdAt: -1 });
+
+        // Filter out conversations where employer has messaging disabled
+        const filteredMessages = messages.filter(message => {
+            return message.jobId && message.jobId.postedBy && message.jobId.postedBy.messagesAllowed;
+        });
         
         // Group by conversation partners and jobs
         const conversations = [];
         const conversationMap = new Map();
         
-        messages.forEach(message => {
+        filteredMessages.forEach(message => {
             let partnerId, partnerType, partnerInfo;
             
             if (message.from._id.toString() === userId) {
@@ -175,6 +188,22 @@ export const getConversationHistory = async (req, res, next) => {
                 message: 'Job not found'
             });
         }
+
+        // Check if employer has messaging enabled
+        const employer = await Employer.findById(job.postedBy);
+        if (!employer) {
+            return res.status(404).json({
+                success: false,
+                message: 'Employer not found'
+            });
+        }
+        
+        if (!employer.messagesAllowed) {
+            return res.status(403).json({
+                success: false,
+                message: 'Messaging is not enabled for this employer'
+            });
+        }
         
         // Find all messages for this job first (for debugging)
         const allJobMessages = await Message.find({ jobId: jobId });
@@ -249,6 +278,29 @@ export const sendMessage = async (req, res, next) => {
             return res.status(404).json({
                 success: false,
                 message: 'Job not found'
+            });
+        }
+
+        // Check if employer has messaging enabled (for both user and employer senders)
+        let employerId;
+        if (fromModel === 'Employer') {
+            employerId = from;
+        } else {
+            employerId = job.postedBy.toString();
+        }
+        
+        const employer = await Employer.findById(employerId);
+        if (!employer) {
+            return res.status(404).json({
+                success: false,
+                message: 'Employer not found'
+            });
+        }
+        
+        if (!employer.messagesAllowed) {
+            return res.status(403).json({
+                success: false,
+                message: 'Messaging is not enabled for this employer. Please contact the employer to enable messaging.'
             });
         }
         
@@ -420,6 +472,14 @@ export const getEmployerConversations = async (req, res, next) => {
             return res.status(404).json({
                 success: false,
                 message: 'Employer not found'
+            });
+        }
+
+        // Check if employer has messaging enabled
+        if (!employer.messagesAllowed) {
+            return res.status(403).json({
+                success: false,
+                message: 'Messaging is not enabled for this employer'
             });
         }
         
