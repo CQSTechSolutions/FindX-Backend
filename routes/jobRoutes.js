@@ -23,13 +23,15 @@ const router = express.Router();
 
 // Public routes
 router.get('/', getAllJobs);
-router.get('/:id', getJob);
 
-// Protected user routes
-router.post('/:id/apply', protect, applyForJob);
-router.get('/my/applications', protect, getMyApplications);
+// Protected user routes - specific routes must come before parameterized routes
 router.get('/recommendations', protect, getJobRecommendations);
+router.get('/my/applications', protect, getMyApplications);
 router.put('/users/:userId/saved-jobs', protect, updateSavedJobs);
+
+// Parameterized routes - must come after specific routes
+router.get('/:id', getJob);
+router.post('/:id/apply', protect, applyForJob);
 
 // Protected employer routes
 router.post('/', protectEmployer, createJob);

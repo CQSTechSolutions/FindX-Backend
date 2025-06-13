@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import mongoose from 'mongoose';
 import bcrypt from "bcryptjs";
+import _ from 'lodash';
 
 // Register user
 export const register = async (req, res) => {
