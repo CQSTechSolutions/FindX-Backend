@@ -694,4 +694,262 @@ export const fixEmptyQuestionResponses = async (req, res, next) => {
         console.error('Error fixing empty question responses:', error);
         next(error);
     }
+};
+
+// Get personalized job recommendations for a user
+export const getJobRecommendations = async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+        
+        // Get user profile with all relevant data
+        const user = await User.findById(userId).select(
+            'skills_and_capabilities work_history education dream_job_title preferred_job_types work_env_preferences relocation appliedJobs savedJobs highest_qualification known_language'
+        );
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        // Get all open jobs
+        const allJobs = await Job.find({ status: 'Open' })
+            .populate('postedBy', 'companyName email companyLogo')
+            .sort('-createdAt');
+
+        if (!allJobs.length) {
+            return res.json({
+                success: true,
+                count: 0,
+                jobs: [],
+                message: 'No jobs available at the moment'
+            });
+        }
+
+        // Filter out jobs user has already applied to or saved
+        const appliedJobIds = user.appliedJobs?.map(id => id.toString()) || [];
+        const savedJobIds = user.savedJobs?.map(id => id.toString()) || [];
+        const excludedJobIds = new Set([...appliedJobIds, ...savedJobIds]);
+
+        const availableJobs = allJobs.filter(job => !excludedJobIds.has(job._id.toString()));
+
+        // Calculate recommendation scores for each job
+        const jobsWithScores = availableJobs.map(job => {
+            const score = calculateRecommendationScore(user, job);
+            return {
+                job,
+                score,
+                matchReasons: getMatchReasons(user, job)
+            };
+        });
+
+        // Sort by score (highest first) and filter jobs with score > 0
+        const recommendedJobs = jobsWithScores
+            .filter(item => item.score > 0)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 50) // Limit to top 50 recommendations
+            .map(item => ({
+                ...item.job.toObject(),
+                recommendationScore: item.score,
+                matchReasons: item.matchReasons
+            }));
+
+        res.json({
+            success: true,
+            count: recommendedJobs.length,
+            jobs: recommendedJobs,
+            message: recommendedJobs.length > 0 
+                ? `Found ${recommendedJobs.length} job recommendations based on your profile`
+                : 'No matching jobs found. Try updating your profile or skills.'
+        });
+
+    } catch (error) {
+        console.error('Error in getJobRecommendations:', error);
+        next(error);
+    }
+};
+
+// Helper function to calculate recommendation score
+const calculateRecommendationScore = (user, job) => {
+    let score = 0;
+    const weights = {
+        skillsMatch: 40,
+        jobTypeMatch: 25,
+        workEnvMatch: 15,
+        locationMatch: 10,
+        educationMatch: 5,
+        languageMatch: 3,
+        experienceMatch: 2
+    };
+
+    // 1. Skills matching (highest weight)
+    if (user.skills_and_capabilities?.length && job.jobSkills?.length) {
+        const userSkills = user.skills_and_capabilities.map(skill => skill.toLowerCase());
+        const jobSkills = job.jobSkills.map(skill => skill.toLowerCase());
+        
+        const matchingSkills = userSkills.filter(skill => 
+            jobSkills.some(jobSkill => 
+                jobSkill.includes(skill) || skill.includes(jobSkill)
+            )
+        );
+        
+        const skillMatchPercentage = matchingSkills.length / Math.max(jobSkills.length, 1);
+        score += skillMatchPercentage * weights.skillsMatch;
+    }
+
+    // 2. Job type preference matching
+    if (user.preferred_job_types?.length && job.workType) {
+        const hasPreferredJobType = user.preferred_job_types.includes(job.workType);
+        if (hasPreferredJobType) {
+            score += weights.jobTypeMatch;
+        }
+    }
+
+    // 3. Work environment preference matching
+    if (user.work_env_preferences?.length && job.workspaceOption) {
+        const workEnvMatch = user.work_env_preferences.some(pref => {
+            if (pref === 'Remote' && job.workspaceOption === 'Remote') return true;
+            if (pref === 'Corporate' && job.workspaceOption === 'On-site') return true;
+            if (pref === 'Startup' && job.workspaceOption === 'Hybrid') return true;
+            return false;
+        });
+        if (workEnvMatch) {
+            score += weights.workEnvMatch;
+        }
+    }
+
+    // 4. Location preference matching
+    if (user.relocation?.preferred_location?.length && job.jobLocation) {
+        const locationMatch = user.relocation.preferred_location.some(location =>
+            job.jobLocation.toLowerCase().includes(location.toLowerCase()) ||
+            location.toLowerCase().includes(job.jobLocation.toLowerCase())
+        );
+        if (locationMatch || user.relocation.willing_to_relocate) {
+            score += weights.locationMatch;
+        }
+    }
+
+    // 5. Education level matching
+    if (user.highest_qualification && job.category) {
+        // Basic education matching - can be improved with more specific requirements
+        const educationLevels = {
+            'High School': 1,
+            'Bachelors': 2,
+            'Masters': 3,
+            'PhD': 4
+        };
+        
+        const userLevel = educationLevels[user.highest_qualification] || 0;
+        if (userLevel >= 2) { // Has bachelor's or higher
+            score += weights.educationMatch;
+        }
+    }
+
+    // 6. Language matching
+    if (user.known_language?.length) {
+        // Assume English is required for most jobs
+        const hasEnglish = user.known_language.some(lang => 
+            lang.toLowerCase().includes('english')
+        );
+        if (hasEnglish) {
+            score += weights.languageMatch;
+        }
+    }
+
+    // 7. Experience matching based on work history
+    if (user.work_history?.length) {
+        const hasRelevantExperience = user.work_history.some(work => {
+            const titleMatch = work.past_job_title?.toLowerCase().includes(job.jobTitle.toLowerCase()) ||
+                              job.jobTitle.toLowerCase().includes(work.past_job_title?.toLowerCase() || '');
+            const categoryMatch = job.category.toLowerCase().includes(work.past_job_title?.toLowerCase() || '') ||
+                                 (work.past_job_title?.toLowerCase() || '').includes(job.category.toLowerCase());
+            return titleMatch || categoryMatch;
+        });
+        
+        if (hasRelevantExperience) {
+            score += weights.experienceMatch;
+        }
+    }
+
+    // 8. Dream job title matching (bonus)
+    if (user.dream_job_title && job.jobTitle) {
+        const dreamJobMatch = job.jobTitle.toLowerCase().includes(user.dream_job_title.toLowerCase()) ||
+                             user.dream_job_title.toLowerCase().includes(job.jobTitle.toLowerCase());
+        if (dreamJobMatch) {
+            score += 10; // Bonus points for dream job match
+        }
+    }
+
+    // 9. Premium listing boost
+    if (job.premiumListing) {
+        score += 5;
+    }
+
+    // 10. Immediate start preference
+    if (job.immediateStart) {
+        score += 3;
+    }
+
+    return Math.min(score, 100); // Cap at 100
+};
+
+// Helper function to get match reasons for display
+const getMatchReasons = (user, job) => {
+    const reasons = [];
+
+    // Skills match
+    if (user.skills_and_capabilities?.length && job.jobSkills?.length) {
+        const userSkills = user.skills_and_capabilities.map(skill => skill.toLowerCase());
+        const jobSkills = job.jobSkills.map(skill => skill.toLowerCase());
+        
+        const matchingSkills = user.skills_and_capabilities.filter(skill => 
+            jobSkills.some(jobSkill => 
+                jobSkill.toLowerCase().includes(skill.toLowerCase()) || 
+                skill.toLowerCase().includes(jobSkill.toLowerCase())
+            )
+        );
+        
+        if (matchingSkills.length > 0) {
+            reasons.push(`Skills match: ${matchingSkills.slice(0, 3).join(', ')}`);
+        }
+    }
+
+    // Job type match
+    if (user.preferred_job_types?.includes(job.workType)) {
+        reasons.push(`Preferred job type: ${job.workType}`);
+    }
+
+    // Work environment match
+    if (user.work_env_preferences?.some(pref => {
+        if (pref === 'Remote' && job.workspaceOption === 'Remote') return true;
+        if (pref === 'Corporate' && job.workspaceOption === 'On-site') return true;
+        return false;
+    })) {
+        reasons.push(`Work environment: ${job.workspaceOption}`);
+    }
+
+    // Location match
+    if (user.relocation?.preferred_location?.some(location =>
+        job.jobLocation.toLowerCase().includes(location.toLowerCase())
+    )) {
+        reasons.push(`Location preference: ${job.jobLocation}`);
+    }
+
+    // Experience match
+    if (user.work_history?.some(work => 
+        work.past_job_title?.toLowerCase().includes(job.jobTitle.toLowerCase()) ||
+        job.jobTitle.toLowerCase().includes(work.past_job_title?.toLowerCase() || '')
+    )) {
+        reasons.push('Relevant work experience');
+    }
+
+    // Dream job match
+    if (user.dream_job_title && 
+        (job.jobTitle.toLowerCase().includes(user.dream_job_title.toLowerCase()) ||
+         user.dream_job_title.toLowerCase().includes(job.jobTitle.toLowerCase()))) {
+        reasons.push('Matches your dream job');
+    }
+
+    return reasons.slice(0, 3); // Limit to top 3 reasons
 }; 

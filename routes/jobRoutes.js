@@ -13,7 +13,8 @@ import {
     updateSavedJobs,
     getApplicationResponses,
     getUserApplicationResponse,
-    fixEmptyQuestionResponses
+    fixEmptyQuestionResponses,
+    getJobRecommendations
 } from '../controllers/jobController.js';
 import { protect } from '../middleware/auth.js';
 import { protectEmployer } from '../middleware/employerAuth.js';
@@ -27,6 +28,7 @@ router.get('/:id', getJob);
 // Protected user routes
 router.post('/:id/apply', protect, applyForJob);
 router.get('/my/applications', protect, getMyApplications);
+router.get('/recommendations', protect, getJobRecommendations);
 router.put('/users/:userId/saved-jobs', protect, updateSavedJobs);
 
 // Protected employer routes
