@@ -758,10 +758,19 @@ export const getJobRecommendations = async (req, res, next) => {
 
         console.log('Debug - Profile complete, fetching jobs...');
 
-        // Get all open jobs
-        const allJobs = await Job.find({ status: 'Open' })
-            .populate('postedBy', 'companyName email companyLogo')
-            .sort('-createdAt');
+        // Get all open jobs with error handling
+        let allJobs;
+        try {
+            allJobs = await Job.find({ status: 'Open' })
+                .populate('postedBy', 'companyName email companyLogo')
+                .sort('-createdAt');
+        } catch (error) {
+            console.error('Error fetching jobs:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Error fetching jobs from database'
+            });
+        }
 
         console.log('Debug - Found jobs:', allJobs.length);
 
@@ -782,14 +791,23 @@ export const getJobRecommendations = async (req, res, next) => {
 
         const availableJobs = allJobs.filter(job => !excludedJobIds.has(job._id.toString()));
 
-        // Calculate recommendation scores for each job
+        // Calculate recommendation scores for each job with error handling
         const jobsWithScores = availableJobs.map(job => {
-            const score = calculateRecommendationScore(user, job);
-            return {
-                job,
-                score,
-                matchReasons: getMatchReasons(user, job)
-            };
+            try {
+                const score = calculateRecommendationScore(user, job);
+                return {
+                    job,
+                    score,
+                    matchReasons: getMatchReasons(user, job)
+                };
+            } catch (error) {
+                console.error('Error calculating score for job:', job._id, error);
+                return {
+                    job,
+                    score: 0,
+                    matchReasons: ['Error calculating match score']
+                };
+            }
         });
 
         // Sort by score (highest first) and filter jobs with score > 0
