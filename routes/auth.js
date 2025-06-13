@@ -1,6 +1,5 @@
 import express from 'express';
 import {
-    forgotPassword,
     getAllUsers,
     login,
     register,
@@ -18,7 +17,6 @@ const router = express.Router();
 // Auth routes
 router.post('/register', register);
 router.post('/login', login);
-router.post('/forgotpassword', forgotPassword);
 router.post('/verifyotp', verifyOtp);
 router.post('/resetpassword', resetPassword);
 

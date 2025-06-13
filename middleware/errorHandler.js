@@ -1,11 +1,13 @@
 const errorHandler = (err, req, res, next) => {
+  // Enhanced error logging
   console.error('Error:', {
     message: err.message,
     stack: err.stack,
     path: req.path,
     method: req.method,
     body: req.body,
-    user: req.user ? req.user.id : 'not authenticated'
+    user: req.user ? req.user.id : 'not authenticated',
+    timestamp: new Date().toISOString()
   });
 
   // Handle Mongoose validation errors
@@ -19,10 +21,11 @@ const errorHandler = (err, req, res, next) => {
 
   // Handle Mongoose duplicate key errors
   if (err.code === 11000) {
+    const field = Object.keys(err.keyPattern)[0];
     return res.status(400).json({
       success: false,
-      message: 'Duplicate field value entered',
-      field: Object.keys(err.keyPattern)[0]
+      message: `Duplicate value for ${field}`,
+      field
     });
   }
 
@@ -49,6 +52,14 @@ const errorHandler = (err, req, res, next) => {
     });
   }
 
+  // Handle MongoDB connection errors
+  if (err.name === 'MongoServerError') {
+    return res.status(503).json({
+      success: false,
+      message: 'Database connection error'
+    });
+  }
+
   // Handle custom errors with status codes
   if (err.statusCode) {
     return res.status(err.statusCode).json({
@@ -62,7 +73,10 @@ const errorHandler = (err, req, res, next) => {
   res.status(statusCode).json({
     success: false,
     message: err.message || 'Internal Server Error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    ...(process.env.NODE_ENV === 'development' && { 
+      stack: err.stack,
+      error: err
+    })
   });
 };
 
