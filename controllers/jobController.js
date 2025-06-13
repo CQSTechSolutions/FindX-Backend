@@ -713,6 +713,18 @@ export const getJobRecommendations = async (req, res, next) => {
             });
         }
 
+        // Debug: Log user data to understand what's available
+        console.log('Debug - User profile data:', {
+            userId: user._id,
+            name: user.name,
+            email: user.email,
+            skills_and_capabilities: user.skills_and_capabilities,
+            preferred_job_types: user.preferred_job_types,
+            work_env_preferences: user.work_env_preferences,
+            highest_qualification: user.highest_qualification,
+            isProfileCompleted: user.isProfileCompleted
+        });
+
         // Check for essential profile completion
         const missingFields = [];
         const profileRequirements = {
@@ -729,8 +741,11 @@ export const getJobRecommendations = async (req, res, next) => {
             }
         }
 
+        console.log('Debug - Missing fields:', missingFields);
+
         // If critical fields are missing, return profile completion message
         if (missingFields.length > 0) {
+            console.log('Debug - Returning profile incomplete response');
             return res.json({
                 success: false,
                 profileIncomplete: true,
@@ -741,12 +756,17 @@ export const getJobRecommendations = async (req, res, next) => {
             });
         }
 
+        console.log('Debug - Profile complete, fetching jobs...');
+
         // Get all open jobs
         const allJobs = await Job.find({ status: 'Open' })
             .populate('postedBy', 'companyName email companyLogo')
             .sort('-createdAt');
 
+        console.log('Debug - Found jobs:', allJobs.length);
+
         if (!allJobs.length) {
+            console.log('Debug - No jobs found in database');
             return res.json({
                 success: true,
                 count: 0,
