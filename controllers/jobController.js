@@ -703,13 +703,41 @@ export const getJobRecommendations = async (req, res, next) => {
         
         // Get user profile with all relevant data
         const user = await User.findById(userId).select(
-            'skills_and_capabilities work_history education dream_job_title preferred_job_types work_env_preferences relocation appliedJobs savedJobs highest_qualification known_language'
+            'skills_and_capabilities work_history education dream_job_title preferred_job_types work_env_preferences relocation appliedJobs savedJobs highest_qualification known_language name email isProfileCompleted'
         );
 
         if (!user) {
             return res.status(404).json({
                 success: false,
                 message: 'User not found'
+            });
+        }
+
+        // Check for essential profile completion
+        const missingFields = [];
+        const profileRequirements = {
+            'skills_and_capabilities': 'Skills and capabilities',
+            'preferred_job_types': 'Preferred job types',
+            'work_env_preferences': 'Work environment preferences',
+            'highest_qualification': 'Education level'
+        };
+
+        // Check required fields
+        for (const [field, displayName] of Object.entries(profileRequirements)) {
+            if (!user[field] || (Array.isArray(user[field]) && user[field].length === 0)) {
+                missingFields.push(displayName);
+            }
+        }
+
+        // If critical fields are missing, return profile completion message
+        if (missingFields.length > 0) {
+            return res.json({
+                success: false,
+                profileIncomplete: true,
+                missingFields: missingFields,
+                count: 0,
+                jobs: [],
+                message: `Complete your profile to get personalized recommendations. Missing: ${missingFields.join(', ')}`
             });
         }
 
