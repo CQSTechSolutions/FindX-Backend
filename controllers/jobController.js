@@ -719,19 +719,19 @@ export const getJobRecommendations = async (req, res, next) => {
             name: user.name,
             email: user.email,
             skills_and_capabilities: user.skills_and_capabilities,
-            preferred_job_types: user.preferred_job_types,
-            work_env_preferences: user.work_env_preferences,
             highest_qualification: user.highest_qualification,
+            work_env_preferences: user.work_env_preferences,
+            education: user.education,
             isProfileCompleted: user.isProfileCompleted
         });
 
         // Check for essential profile completion
         const missingFields = [];
         const profileRequirements = {
-            'skills_and_capabilities': 'Skills and capabilities',
-            'preferred_job_types': 'Preferred job types',
-            'work_env_preferences': 'Work environment preferences',
-            'highest_qualification': 'Education level'
+            'skills_and_capabilities': 'Skills',
+            'highest_qualification': 'Highest Qualification',
+            'work_env_preferences': 'Work Environment',
+            'education': 'Education'
         };
 
         // Check required fields
