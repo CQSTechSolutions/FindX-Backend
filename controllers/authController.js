@@ -33,7 +33,6 @@ export const register = async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      role: role || 'user'
     });
 
     await user.save();
@@ -51,8 +50,7 @@ export const register = async (req, res) => {
       user: {
         id: user._id,
         name: user.name,
-        email: user.email,
-        role: user.role
+        email: user.email
       }
     });
   } catch (error) {
