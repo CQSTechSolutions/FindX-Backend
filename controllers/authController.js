@@ -9,53 +9,54 @@ export const register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    // Check if user exists
-    const userExists = await User.findOne({ email });
-    if (userExists) {
-      return res.status(409).json({
+    // Validate input
+    if (!name || !email || !password) {
+      return res.status(400).json({
         success: false,
-        message: 'User already exists'
+        message: 'Please provide name, email and password'
       });
     }
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ message: 'User already exists' });
+      return res.status(409).json({
+        success: false,
+        message: 'User already exists'
+      });
     }
 
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    // Create new user
+    // Create new user (password will be hashed automatically by User model pre-save middleware)
     const user = new User({
       name,
       email,
-      password: hashedPassword,
+      password, // Don't hash manually - let the model handle it
     });
 
     await user.save();
 
-    // Generate JWT token
+    // Generate JWT token (use 'id' to match login and middleware)
     const token = jwt.sign(
-      { userId: user._id },
+      { id: user._id }, // Changed from userId to id for consistency
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: process.env.JWT_EXPIRE || '7d' }
     );
 
+    // Get user data without sensitive fields
+    const userWithoutPassword = await User.findById(user._id).select('-password -passwordResetOtp -passwordResetExpire');
+
     res.status(201).json({
+      success: true,
       message: 'User registered successfully',
       token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email
-      }
+      user: userWithoutPassword
     });
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ message: 'Error registering user' });
+    res.status(500).json({ 
+      success: false,
+      message: 'Error registering user' 
+    });
   }
 };
 
@@ -64,7 +65,7 @@ export const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
-    // Check if email and password are provided
+    // Validate input
     if (!email || !password) {
       return res.status(400).json({
         success: false,
@@ -72,7 +73,7 @@ export const login = async (req, res, next) => {
       });
     }
 
-    // Check for user
+    // Check for user and include password field
     const user = await User.findOne({ email }).select('+password');
     if (!user) {
       return res.status(404).json({
@@ -81,7 +82,7 @@ export const login = async (req, res, next) => {
       });
     }
 
-    // Check if password matches
+    // Check if password matches using the model method
     const isMatch = await user.matchPassword(password);
     if (!isMatch) {
       return res.status(401).json({
@@ -90,20 +91,25 @@ export const login = async (req, res, next) => {
       });
     }
 
-    // Create token
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXPIRE
-    });
+    // Create token with consistent structure
+    const token = jwt.sign(
+      { id: user._id }, 
+      process.env.JWT_SECRET, {
+        expiresIn: process.env.JWT_EXPIRE || '7d'
+      }
+    );
 
     // Get complete user data without sensitive fields
     const userWithoutPassword = await User.findById(user._id).select('-password -passwordResetOtp -passwordResetExpire');
 
     res.json({
       success: true,
+      message: 'Login successful',
       token,
       user: userWithoutPassword
     });
   } catch (error) {
+    console.error('Login error:', error);
     next(error);
   }
 };
