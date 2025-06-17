@@ -147,6 +147,20 @@ const userSchema = new mongoose.Schema({
         type: [String],
         default: []
     },
+    licenses: {
+        type: [{
+            licenseName: String,
+            issuingOrganisation: String,
+            issueDate: String,
+            noExpiry: {
+                type: Boolean,
+                default: false
+            },
+            expiryDate: String,
+            description: String
+        }],
+        default: []
+    },
     skills_and_capabilities: {
         type: [String],
         default: []
