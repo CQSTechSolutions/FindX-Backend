@@ -64,7 +64,8 @@ const workHistorySchema = new mongoose.Schema({
     },
     past_job_end_date: {
         type: Date,
-        required: [true, "Please provide a past job end date"]
+        // Not required for current roles
+        required: false
     },
     past_employment_type: {
         type: String,
@@ -73,15 +74,18 @@ const workHistorySchema = new mongoose.Schema({
     },
     past_job_leave_reason: {
         type: String,
-        required: true
+        // Not required for current roles
+        required: false
     },
     past_job_refrence_person: {
         type: String,
-        required: [true, "Please provide past job reference"]
+        // Make optional since it might not always be available
+        required: false
     },
     NoticePeriod: {
         type: String,
-        required: [true, "Please provide a notice period"]
+        // Make optional
+        required: false
     }
 }, {_id: true});
 

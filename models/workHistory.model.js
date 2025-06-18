@@ -36,8 +36,8 @@ const workHistorySchema = new mongoose.Schema({
         required: true
     },
     past_job_refrence_person: {
-        type: string,
-        required: [true, "Please provide past job refrence."]
+        type: String,
+        required: [true, "Please provide past job reference."]
     },
     NoticePeriod: {
         type: String,

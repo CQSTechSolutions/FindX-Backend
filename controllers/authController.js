@@ -226,7 +226,7 @@ export const updateUserProfile = async (req, res, next) => {
     const allowedFields = [
       'name', 'gender', 'preferred_pronouns', 'nationality', 'resident_country',
       'known_language', 'preferred_time_zone', 'highest_qualification',
-      'achievements', 'skills_and_capabilities', 'resume', 'resume_downloadble',
+      'achievements', 'licenses', 'skills_and_capabilities', 'resume', 'resume_downloadble',
       'cover_letter', 'dream_job_title', 'preferred_job_types',
       'work_env_preferences', 'relocation', 'personal_branding_statement',
       'hobbies', 'emergency_contact_info', 'externalLinks', 'education',
@@ -253,8 +253,23 @@ export const updateUserProfile = async (req, res, next) => {
       });
     }
 
-    // Deep merge updates into user document
-    _.merge(user, updates);
+    // Handle array and object fields specially to avoid merge issues
+    const arrayFields = ['work_history', 'licenses', 'education', 'skills_and_capabilities', 'achievements', 'known_language', 'preferred_job_types', 'work_env_preferences', 'hobbies', 'savedJobs', 'appliedJobs'];
+    const objectFields = ['relocation', 'emergency_contact_info', 'externalLinks'];
+
+    // Update each field appropriately
+    for (const [key, value] of Object.entries(updates)) {
+      if (arrayFields.includes(key)) {
+        // For array fields, directly assign the new array
+        user[key] = value;
+      } else if (objectFields.includes(key)) {
+        // For object fields, merge with existing data
+        user[key] = { ...user[key], ...value };
+      } else {
+        // For simple fields, direct assignment
+        user[key] = value;
+      }
+    }
 
     await user.save();
 
@@ -270,6 +285,7 @@ export const updateUserProfile = async (req, res, next) => {
       user: sanitizedUser
     });
   } catch (error) {
+    console.error('Error updating user profile:', error);
     next(error);
   }
 };
