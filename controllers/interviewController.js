@@ -143,6 +143,10 @@ export const sendInterviewInvitation = async (req, res, next) => {
  */
 export const getMyInterviewInvitations = async (req, res, next) => {
     try {
+        console.log('getMyInterviewInvitations called');
+        console.log('User ID:', req.user?.id);
+        console.log('Query params:', req.query);
+        
         const { status } = req.query;
         
         let query = { applicantId: req.user.id };
@@ -150,10 +154,14 @@ export const getMyInterviewInvitations = async (req, res, next) => {
             query.status = status;
         }
 
+        console.log('Database query:', query);
+
         const invitations = await InterviewInvitation.find(query)
             .populate('job', 'jobTitle companyName jobLocation')
             .populate('employer', 'companyName email')
             .sort({ createdAt: -1 });
+
+        console.log('Found invitations:', invitations.length);
 
         res.json({
             success: true,

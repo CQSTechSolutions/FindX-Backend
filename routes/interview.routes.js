@@ -19,6 +19,29 @@ router.get('/sent-invitations', protectEmployer, getSentInterviewInvitations);
 router.put('/:invitationId/reschedule-response', protectEmployer, respondToRescheduleRequest);
 router.delete('/:invitationId/cancel', protectEmployer, cancelInterviewInvitation);
 
+// Test route (unprotected for debugging)
+router.get('/test', (req, res) => {
+    res.json({
+        success: true,
+        message: 'Interview routes are working',
+        timestamp: new Date().toISOString()
+    });
+});
+
+// Test protected route (for debugging auth)
+router.get('/test-auth', protect, (req, res) => {
+    res.json({
+        success: true,
+        message: 'Authentication is working',
+        user: {
+            id: req.user.id,
+            name: req.user.name,
+            email: req.user.email
+        },
+        timestamp: new Date().toISOString()
+    });
+});
+
 // User routes (protected by user auth)
 router.get('/my-invitations', protect, getMyInterviewInvitations);
 router.put('/:invitationId/respond', protect, respondToInterviewInvitation);
