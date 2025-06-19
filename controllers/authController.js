@@ -222,6 +222,13 @@ export const updateUserProfile = async (req, res, next) => {
     const userId = req.user._id;
     const updates = req.body;
 
+    // Debug logging for external links and emergency contact
+    if (updates.externalLinks || updates.emergency_contact_info) {
+      console.log('[DEBUG] Updating external links or emergency contact');
+      console.log('[DEBUG] External Links:', JSON.stringify(updates.externalLinks, null, 2));
+      console.log('[DEBUG] Emergency Contact:', JSON.stringify(updates.emergency_contact_info, null, 2));
+    }
+
     // List of allowed fields
     const allowedFields = [
       'name', 'gender', 'preferred_pronouns', 'nationality', 'resident_country',
@@ -244,48 +251,94 @@ export const updateUserProfile = async (req, res, next) => {
       });
     }
 
-    // Fetch user to update deeply nested fields
-    const user = await User.findById(userId).select('+passwordResetOtp +passwordResetExpire');
-    if (!user) {
+    // Get current user data for logging
+    const currentUser = await User.findById(userId).select('-password -passwordResetOtp -passwordResetExpire');
+    if (!currentUser) {
       return res.status(404).json({
         success: false,
         message: 'User not found'
       });
     }
 
+    console.log('[DEBUG] Current user external links:', JSON.stringify(currentUser.externalLinks, null, 2));
+    console.log('[DEBUG] Current user emergency contact:', JSON.stringify(currentUser.emergency_contact_info, null, 2));
+
     // Handle array and object fields specially to avoid merge issues
     const arrayFields = ['work_history', 'licenses', 'education', 'skills_and_capabilities', 'achievements', 'known_language', 'preferred_job_types', 'work_env_preferences', 'hobbies', 'savedJobs', 'appliedJobs'];
     const objectFields = ['relocation', 'emergency_contact_info', 'externalLinks'];
 
-    // Update each field appropriately
+    // Prepare update operations
+    const updateOps = {};
+    
     for (const [key, value] of Object.entries(updates)) {
       if (arrayFields.includes(key)) {
         // For array fields, directly assign the new array
-        user[key] = value;
+        updateOps[key] = value;
       } else if (objectFields.includes(key)) {
         // For object fields, merge with existing data
-        user[key] = { ...user[key], ...value };
+        const currentValue = currentUser[key] || {};
+        updateOps[key] = { ...currentValue, ...value };
+        console.log(`[DEBUG] Will update ${key}:`, JSON.stringify(updateOps[key], null, 2));
       } else {
         // For simple fields, direct assignment
-        user[key] = value;
+        updateOps[key] = value;
       }
     }
 
-    await user.save();
+    // Use findByIdAndUpdate to avoid version conflicts
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { $set: updateOps },
+      { 
+        new: true, // Return the updated document
+        runValidators: true, // Run schema validations
+        select: '-password -passwordResetOtp -passwordResetExpire' // Exclude sensitive fields
+      }
+    );
 
-    // Remove sensitive fields from response
-    const sanitizedUser = user.toObject();
-    delete sanitizedUser.password;
-    delete sanitizedUser.passwordResetOtp;
-    delete sanitizedUser.passwordResetExpire;
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found after update'
+      });
+    }
+
+    console.log('[DEBUG] After save - External Links:', JSON.stringify(updatedUser.externalLinks, null, 2));
+    console.log('[DEBUG] After save - Emergency Contact:', JSON.stringify(updatedUser.emergency_contact_info, null, 2));
 
     res.json({
       success: true,
       message: 'Profile updated successfully',
-      user: sanitizedUser
+      user: updatedUser
     });
   } catch (error) {
     console.error('Error updating user profile:', error);
+    
+    // Handle specific MongoDB errors
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Duplicate value error. Please check your input.'
+      });
+    }
+    
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: `Validation error: ${error.message}`
+      });
+    }
+    
+    // Handle version key errors (just in case)
+    if (error.message && error.message.includes('version')) {
+      console.log('[DEBUG] Version conflict detected, retrying...');
+      // For now, just return a user-friendly message
+      return res.status(409).json({
+        success: false,
+        message: 'Data was updated by another process. Please refresh and try again.'
+      });
+    }
+    
     next(error);
   }
 };
