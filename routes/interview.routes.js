@@ -10,8 +10,30 @@ import {
     getUpcomingInterviews,
     cancelInterviewInvitation
 } from '../controllers/interviewController.js';
+import InterviewInvitation from '../models/InterviewInvitation.model.js';
 
 const router = express.Router();
+
+// Debug endpoint to check if invitations exist
+router.get('/debug/all', async (req, res) => {
+    try {
+        const allInvitations = await InterviewInvitation.find({})
+            .populate('jobId', 'jobTitle')
+            .populate('employerId', 'companyName')
+            .populate('applicantId', 'name email');
+        
+        res.json({
+            success: true,
+            count: allInvitations.length,
+            invitations: allInvitations
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
 
 // Employer routes (protected by employer auth)
 router.post('/send-invitation', protectEmployer, sendInterviewInvitation);

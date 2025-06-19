@@ -157,16 +157,31 @@ export const getMyInterviewInvitations = async (req, res, next) => {
         console.log('Database query:', query);
 
         const invitations = await InterviewInvitation.find(query)
-            .populate('job', 'jobTitle companyName jobLocation')
-            .populate('employer', 'companyName email')
+            .populate({
+                path: 'jobId',
+                select: 'jobTitle companyName jobLocation',
+                model: 'Job'
+            })
+            .populate({
+                path: 'employerId',
+                select: 'companyName email',
+                model: 'Employer'
+            })
             .sort({ createdAt: -1 });
 
         console.log('Found invitations:', invitations.length);
 
+        // Transform the data to match frontend expectations
+        const transformedInvitations = invitations.map(invitation => ({
+            ...invitation.toObject(),
+            job: invitation.jobId, // Map jobId to job for consistency
+            employer: invitation.employerId // Map employerId to employer for consistency
+        }));
+
         res.json({
             success: true,
-            count: invitations.length,
-            invitations
+            count: transformedInvitations.length,
+            invitations: transformedInvitations
         });
 
     } catch (error) {
@@ -182,6 +197,9 @@ export const getMyInterviewInvitations = async (req, res, next) => {
  */
 export const getSentInterviewInvitations = async (req, res, next) => {
     try {
+        console.log('getSentInterviewInvitations called');
+        console.log('Employer ID:', req.employer?._id);
+        
         const { status, jobId } = req.query;
         
         let query = { employerId: req.employer._id };
@@ -192,15 +210,29 @@ export const getSentInterviewInvitations = async (req, res, next) => {
             query.jobId = jobId;
         }
 
+        console.log('Database query:', query);
+
         const invitations = await InterviewInvitation.find(query)
             .populate('job', 'jobTitle companyName')
-            .populate('applicant', 'name email')
+            .populate({
+                path: 'applicantId',
+                select: 'name email',
+                model: 'User'
+            })
             .sort({ createdAt: -1 });
+
+        console.log('Found invitations:', invitations.length);
+
+        // Transform the data to match frontend expectations
+        const transformedInvitations = invitations.map(invitation => ({
+            ...invitation.toObject(),
+            applicant: invitation.applicantId // Map applicantId to applicant for consistency
+        }));
 
         res.json({
             success: true,
-            count: invitations.length,
-            invitations
+            count: transformedInvitations.length,
+            invitations: transformedInvitations
         });
 
     } catch (error) {
