@@ -10,6 +10,7 @@ import employerRoutes from './routes/employer.routes.js';
 import messageRoutes from './routes/messageRoutes.js';
 import userSearchRoutes from './routes/userSearch.routes.js';
 import interviewRoutes from './routes/interview.routes.js';
+import broadcastRoutes from './routes/broadcast.routes.js';
 
 dotenv.config();
 
@@ -62,6 +63,7 @@ app.use('/api/employer', employerRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/user-search', userSearchRoutes);
 app.use('/api/interviews', interviewRoutes);
+app.use('/api/broadcast', broadcastRoutes);
 
 // Error handling middleware
 app.use(errorHandler);
