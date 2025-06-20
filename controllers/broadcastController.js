@@ -20,10 +20,17 @@ const createTransporter = () => {
 // Send broadcast email to all users
 export const sendBroadcastEmail = async (req, res) => {
   try {
+    console.log('🚀 Broadcast email request received:', { 
+      title: req.body.title, 
+      type: req.body.type,
+      bodyLength: req.body.body?.length 
+    });
+    
     const { title, body, type } = req.body;
 
     // Validate required fields
     if (!title || !body) {
+      console.log('❌ Validation failed: Missing title or body');
       return res.status(400).json({
         success: false,
         message: 'Title and body are required'
