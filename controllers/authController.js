@@ -222,12 +222,7 @@ export const updateUserProfile = async (req, res, next) => {
     const userId = req.user._id;
     const updates = req.body;
 
-    // Debug logging for external links and emergency contact
-    if (updates.externalLinks || updates.emergency_contact_info) {
-      console.log('[DEBUG] Updating external links or emergency contact');
-      console.log('[DEBUG] External Links:', JSON.stringify(updates.externalLinks, null, 2));
-      console.log('[DEBUG] Emergency Contact:', JSON.stringify(updates.emergency_contact_info, null, 2));
-    }
+    // Removed external links and emergency contact debug logging
 
     // List of allowed fields
     const allowedFields = [
@@ -260,8 +255,7 @@ export const updateUserProfile = async (req, res, next) => {
       });
     }
 
-    console.log('[DEBUG] Current user external links:', JSON.stringify(currentUser.externalLinks, null, 2));
-    console.log('[DEBUG] Current user emergency contact:', JSON.stringify(currentUser.emergency_contact_info, null, 2));
+    // Removed external links and emergency contact debug logging
 
     // Handle array and object fields specially to avoid merge issues
     const arrayFields = ['work_history', 'licenses', 'education', 'skills_and_capabilities', 'achievements', 'known_language', 'preferred_job_types', 'work_env_preferences', 'hobbies', 'savedJobs', 'appliedJobs'];
@@ -303,8 +297,7 @@ export const updateUserProfile = async (req, res, next) => {
       });
     }
 
-    console.log('[DEBUG] After save - External Links:', JSON.stringify(updatedUser.externalLinks, null, 2));
-    console.log('[DEBUG] After save - Emergency Contact:', JSON.stringify(updatedUser.emergency_contact_info, null, 2));
+    // Removed external links and emergency contact debug logging
 
     res.json({
       success: true,
