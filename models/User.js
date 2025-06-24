@@ -8,17 +8,46 @@ const relocationSchema = new mongoose.Schema({
 }, {_id: true});
 
 const emergencyContactSchema = new mongoose.Schema({
-    emergency_contact_number: String,
-    emergency_contact_name: String,
-    emergency_contact_relationship: String
-}, {_id: true});
+    name: {
+        type: String,
+        required: false
+    },
+    relationship: {
+        type: String,
+        required: false
+    },
+    phone: {
+        type: String,
+        required: false
+    },
+    email: {
+        type: String,
+        required: false
+    }
+}, {_id: false});
 
-const externalLinksSchema = new mongoose.Schema({
-    personal_website_link: String,
-    github_link: String,
-    linkedin_link: String,
-    twitter_link: String
-}, {_id: true});
+const socialLinksSchema = new mongoose.Schema({
+    linkedin: {
+        type: String,
+        required: false
+    },
+    github: {
+        type: String,
+        required: false
+    },
+    portfolio: {
+        type: String,
+        required: false
+    },
+    twitter: {
+        type: String,
+        required: false
+    },
+    website: {
+        type: String,
+        required: false
+    }
+}, {_id: false});
 
 const messagesFromEmployerSchema = new mongoose.Schema({
     message: String,
@@ -203,12 +232,12 @@ const userSchema = new mongoose.Schema({
         type: [String],
         default: []
     },
-    emergency_contact_info: {
+    emergency_contact: {
         type: emergencyContactSchema,
         default: {}
     },
-    externalLinks: {
-        type: externalLinksSchema,
+    social_links: {
+        type: socialLinksSchema,
         default: {}
     },
     passwordResetOtp: {

@@ -6,3 +6,4 @@ docs/
 .idea/
 .idea
 scripts/
+pnpm-lock.yaml

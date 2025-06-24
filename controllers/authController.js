@@ -222,12 +222,9 @@ export const updateUserProfile = async (req, res, next) => {
     const userId = req.user._id;
     const updates = req.body;
 
-    // Debug logging for external links and emergency contact
-    if (updates.externalLinks || updates.emergency_contact_info) {
-      console.log('[DEBUG] Updating external links or emergency contact');
-      console.log('[DEBUG] External Links:', JSON.stringify(updates.externalLinks, null, 2));
-      console.log('[DEBUG] Emergency Contact:', JSON.stringify(updates.emergency_contact_info, null, 2));
-    }
+    // Debug: Log what we received
+    console.log('[DEBUG] Received update request for user:', userId);
+    console.log('[DEBUG] Update data:', JSON.stringify(updates, null, 2));
 
     // List of allowed fields
     const allowedFields = [
@@ -236,7 +233,7 @@ export const updateUserProfile = async (req, res, next) => {
       'achievements', 'licenses', 'skills_and_capabilities', 'resume', 'resume_downloadble',
       'cover_letter', 'dream_job_title', 'preferred_job_types',
       'work_env_preferences', 'relocation', 'personal_branding_statement',
-      'hobbies', 'emergency_contact_info', 'externalLinks', 'education',
+      'hobbies', 'education', 'emergency_contact', 'social_links',
       'work_history', 'savedJobs', 'isProfileCompleted', 'appliedJobs'
     ];
 
@@ -245,6 +242,7 @@ export const updateUserProfile = async (req, res, next) => {
     );
 
     if (invalidFields.length) {
+      console.log('[DEBUG] Invalid fields detected:', invalidFields);
       return res.status(400).json({
         success: false,
         message: `Invalid fields in request: ${invalidFields.join(', ')}`
@@ -260,12 +258,10 @@ export const updateUserProfile = async (req, res, next) => {
       });
     }
 
-    console.log('[DEBUG] Current user external links:', JSON.stringify(currentUser.externalLinks, null, 2));
-    console.log('[DEBUG] Current user emergency contact:', JSON.stringify(currentUser.emergency_contact_info, null, 2));
 
     // Handle array and object fields specially to avoid merge issues
     const arrayFields = ['work_history', 'licenses', 'education', 'skills_and_capabilities', 'achievements', 'known_language', 'preferred_job_types', 'work_env_preferences', 'hobbies', 'savedJobs', 'appliedJobs'];
-    const objectFields = ['relocation', 'emergency_contact_info', 'externalLinks'];
+    const objectFields = ['relocation', 'emergency_contact', 'social_links'];
 
     // Prepare update operations
     const updateOps = {};
@@ -275,9 +271,9 @@ export const updateUserProfile = async (req, res, next) => {
         // For array fields, directly assign the new array
         updateOps[key] = value;
       } else if (objectFields.includes(key)) {
-        // For object fields, merge with existing data
-        const currentValue = currentUser[key] || {};
-        updateOps[key] = { ...currentValue, ...value };
+        // For object fields, replace the entire object instead of merging
+        // This prevents issues with nested object updates
+        updateOps[key] = value;
         console.log(`[DEBUG] Will update ${key}:`, JSON.stringify(updateOps[key], null, 2));
       } else {
         // For simple fields, direct assignment
@@ -286,6 +282,8 @@ export const updateUserProfile = async (req, res, next) => {
     }
 
     // Use findByIdAndUpdate to avoid version conflicts
+    console.log('[DEBUG] Final update operations:', JSON.stringify(updateOps, null, 2));
+    
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       { $set: updateOps },
@@ -302,9 +300,6 @@ export const updateUserProfile = async (req, res, next) => {
         message: 'User not found after update'
       });
     }
-
-    console.log('[DEBUG] After save - External Links:', JSON.stringify(updatedUser.externalLinks, null, 2));
-    console.log('[DEBUG] After save - Emergency Contact:', JSON.stringify(updatedUser.emergency_contact_info, null, 2));
 
     res.json({
       success: true,
@@ -323,6 +318,8 @@ export const updateUserProfile = async (req, res, next) => {
     }
     
     if (error.name === 'ValidationError') {
+      console.error('[DEBUG] Validation error details:', error.message);
+      console.error('[DEBUG] Validation error fields:', error.errors);
       return res.status(400).json({
         success: false,
         message: `Validation error: ${error.message}`
