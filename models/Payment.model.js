@@ -51,7 +51,18 @@ const paymentSchema = new mongoose.Schema({
         required: false
     },
     addOns: [{
-        type: String
+        id: {
+            type: String,
+            required: true
+        },
+        name: {
+            type: String,
+            required: true
+        },
+        price: {
+            type: Number,
+            required: true
+        }
     }],
     candidateCount: {
         type: Number,
