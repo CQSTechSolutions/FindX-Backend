@@ -13,6 +13,7 @@ import interviewRoutes from './routes/interview.routes.js';
 import broadcastRoutes from './routes/broadcast.routes.js';
 import paymentRoutes from './routes/payment.routes.js';
 import contactRoutes from './routes/contact.routes.js';
+import resumeRoutes from './routes/resumeRoutes.js';
 
 dotenv.config();
 
@@ -81,6 +82,7 @@ app.use('/api/interviews', interviewRoutes);
 app.use('/api/broadcast', broadcastRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/contact', contactRoutes);
+app.use('/api/resume', resumeRoutes);
 
 // Error handling middleware
 app.use(errorHandler);
