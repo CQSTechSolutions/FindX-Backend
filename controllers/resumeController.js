@@ -1,4 +1,4 @@
-import { uploadToCloudinary, deleteFromCloudinary } from '../utils/cloudinary.js';
+import { uploadToCloudinary, deleteFromCloudinary, extractPublicIdFromUrl } from '../utils/cloudinary.js';
 import User from '../models/User.js';
 
 // Upload resume
@@ -25,9 +25,14 @@ export const uploadResume = async (req, res) => {
         // Delete existing resume from Cloudinary if it exists
         if (user.resume && user.resume.includes('cloudinary')) {
             try {
-                // Extract public_id from the URL
-                const publicId = user.resume.split('/').slice(-2).join('/').split('.')[0];
-                await deleteFromCloudinary(publicId);
+                const publicId = extractPublicIdFromUrl(user.resume);
+                if (publicId) {
+                    console.log('Attempting to delete old resume with public_id:', publicId);
+                    const deleteResult = await deleteFromCloudinary(publicId);
+                    console.log('Successfully deleted old resume from Cloudinary:', deleteResult);
+                } else {
+                    console.log('Could not extract public_id from URL:', user.resume);
+                }
             } catch (deleteError) {
                 console.log('Error deleting old resume:', deleteError);
                 // Continue with upload even if delete fails
@@ -35,11 +40,13 @@ export const uploadResume = async (req, res) => {
         }
 
         // Upload new resume to Cloudinary
+        console.log('Uploading new resume:', req.file.originalname, 'Size:', req.file.size, 'bytes');
         const result = await uploadToCloudinary(
             req.file.buffer,
             req.file.originalname,
             'raw' // Use 'raw' for documents like PDF, DOC, etc.
         );
+        console.log('New resume uploaded successfully. URL:', result.secure_url);
 
         // Update user with new resume URL
         const updatedUser = await User.findByIdAndUpdate(
@@ -87,9 +94,14 @@ export const deleteResume = async (req, res) => {
         // Delete from Cloudinary if it exists
         if (user.resume && user.resume.includes('cloudinary')) {
             try {
-                // Extract public_id from the URL
-                const publicId = user.resume.split('/').slice(-2).join('/').split('.')[0];
-                await deleteFromCloudinary(publicId);
+                const publicId = extractPublicIdFromUrl(user.resume);
+                if (publicId) {
+                    console.log('Attempting to delete resume with public_id:', publicId);
+                    const deleteResult = await deleteFromCloudinary(publicId);
+                    console.log('Successfully deleted resume from Cloudinary:', deleteResult);
+                } else {
+                    console.log('Could not extract public_id from URL:', user.resume);
+                }
             } catch (deleteError) {
                 console.log('Error deleting resume from Cloudinary:', deleteError);
                 // Continue with database update even if Cloudinary delete fails
