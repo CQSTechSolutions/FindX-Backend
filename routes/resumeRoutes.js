@@ -1,6 +1,6 @@
 import express from 'express';
 import multer from 'multer';
-import { uploadResume, deleteResume, updateResumeVisibility } from '../controllers/resumeController.js';
+import { uploadResume, deleteResume, updateResumeVisibility, testCloudinary } from '../controllers/resumeController.js';
 import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -35,5 +35,6 @@ const upload = multer({
 router.post('/upload', protect, upload.single('resume'), uploadResume);
 router.delete('/delete', protect, deleteResume);
 router.patch('/visibility', protect, updateResumeVisibility);
+router.get('/test-cloudinary', protect, testCloudinary);
 
 export default router; 

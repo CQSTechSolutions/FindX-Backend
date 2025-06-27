@@ -1,4 +1,4 @@
-import { uploadToCloudinary, deleteFromCloudinary, extractPublicIdFromUrl } from '../utils/cloudinary.js';
+import { uploadToCloudinary, deleteFromCloudinary, extractPublicIdFromUrl, forceDeleteFromCloudinary, testCloudinaryConnection } from '../utils/cloudinary.js';
 import User from '../models/User.js';
 
 // Upload resume
@@ -25,11 +25,26 @@ export const uploadResume = async (req, res) => {
         // Delete existing resume from Cloudinary if it exists
         if (user.resume && user.resume.includes('cloudinary')) {
             try {
+                console.log('Found existing resume URL:', user.resume);
                 const publicId = extractPublicIdFromUrl(user.resume);
                 if (publicId) {
                     console.log('Attempting to delete old resume with public_id:', publicId);
-                    const deleteResult = await deleteFromCloudinary(publicId);
-                    console.log('Successfully deleted old resume from Cloudinary:', deleteResult);
+                    
+                    // Try regular deletion first
+                    let deleteResult = await deleteFromCloudinary(publicId);
+                    
+                    // If regular deletion failed, try force deletion
+                    if (deleteResult.result !== 'ok') {
+                        console.log('Regular deletion failed, attempting force deletion...');
+                        const forceResult = await forceDeleteFromCloudinary(publicId);
+                        if (forceResult.success) {
+                            console.log('Force deletion successful:', forceResult.result);
+                        } else {
+                            console.log('Force deletion also failed:', forceResult.error);
+                        }
+                    } else {
+                        console.log('Successfully deleted old resume from Cloudinary:', deleteResult);
+                    }
                 } else {
                     console.log('Could not extract public_id from URL:', user.resume);
                 }
@@ -94,11 +109,26 @@ export const deleteResume = async (req, res) => {
         // Delete from Cloudinary if it exists
         if (user.resume && user.resume.includes('cloudinary')) {
             try {
+                console.log('Found resume URL to delete:', user.resume);
                 const publicId = extractPublicIdFromUrl(user.resume);
                 if (publicId) {
                     console.log('Attempting to delete resume with public_id:', publicId);
-                    const deleteResult = await deleteFromCloudinary(publicId);
-                    console.log('Successfully deleted resume from Cloudinary:', deleteResult);
+                    
+                    // Try regular deletion first
+                    let deleteResult = await deleteFromCloudinary(publicId);
+                    
+                    // If regular deletion failed, try force deletion
+                    if (deleteResult.result !== 'ok') {
+                        console.log('Regular deletion failed, attempting force deletion...');
+                        const forceResult = await forceDeleteFromCloudinary(publicId);
+                        if (forceResult.success) {
+                            console.log('Force deletion successful:', forceResult.result);
+                        } else {
+                            console.log('Force deletion also failed:', forceResult.error);
+                        }
+                    } else {
+                        console.log('Successfully deleted resume from Cloudinary:', deleteResult);
+                    }
                 } else {
                     console.log('Could not extract public_id from URL:', user.resume);
                 }
@@ -177,6 +207,35 @@ export const updateResumeVisibility = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Error updating resume visibility'
+        });
+    }
+};
+
+// Test Cloudinary connection - for debugging
+export const testCloudinary = async (req, res) => {
+    try {
+        console.log('Testing Cloudinary connection...');
+        const connectionTest = await testCloudinaryConnection();
+        
+        if (connectionTest.success) {
+            res.json({
+                success: true,
+                message: 'Cloudinary connection successful',
+                data: connectionTest.result
+            });
+        } else {
+            res.status(500).json({
+                success: false,
+                message: 'Cloudinary connection failed',
+                error: connectionTest.error
+            });
+        }
+    } catch (error) {
+        console.error('Test Cloudinary error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error testing Cloudinary connection',
+            error: error.message
         });
     }
 };
