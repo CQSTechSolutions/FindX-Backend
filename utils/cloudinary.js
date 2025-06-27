@@ -14,17 +14,28 @@ cloudinary.config({
 export const uploadToCloudinary = async (fileBuffer, fileName, resourceType = 'raw') => {
     try {
         return new Promise((resolve, reject) => {
-            // Create a clean filename without special characters
+            // Create a clean filename without special characters but preserve extension
             const cleanFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
             const timestamp = Date.now();
-            const publicId = `findx/resumes/${timestamp}_${cleanFileName.split('.')[0]}`;
             
-            console.log('Uploading to Cloudinary with public_id:', publicId);
+            // Extract file extension
+            const fileExtension = cleanFileName.split('.').pop().toLowerCase();
+            const fileNameWithoutExt = cleanFileName.replace(/\.[^/.]+$/, '');
+            
+            // Create public_id with extension for proper file type handling
+            const publicId = `findx/resumes/${timestamp}_${fileNameWithoutExt}`;
+            
+            console.log('Uploading to Cloudinary:');
+            console.log('- Original filename:', fileName);
+            console.log('- Clean filename:', cleanFileName);
+            console.log('- File extension:', fileExtension);
+            console.log('- Public ID:', publicId);
             
             const uploadStream = cloudinary.uploader.upload_stream(
                 {
                     resource_type: resourceType,
                     public_id: publicId,
+                    format: fileExtension, // Preserve original file format
                     use_filename: false, // Use our custom public_id
                     unique_filename: false, // We're handling uniqueness with timestamp
                     overwrite: true, // Allow overwriting if same public_id exists
@@ -34,7 +45,11 @@ export const uploadToCloudinary = async (fileBuffer, fileName, resourceType = 'r
                         console.error('Cloudinary upload error:', error);
                         reject(error);
                     } else {
-                        console.log('Upload successful. Public ID:', result.public_id);
+                        console.log('Upload successful:');
+                        console.log('- Public ID:', result.public_id);
+                        console.log('- Format:', result.format);
+                        console.log('- Resource Type:', result.resource_type);
+                        console.log('- Secure URL:', result.secure_url);
                         resolve(result);
                     }
                 }
@@ -114,8 +129,15 @@ export const extractPublicIdFromUrl = (cloudinaryUrl) => {
             console.log('Removed version, new path:', publicIdWithExtension);
         }
         
-        // Remove file extension (everything after the last dot)
-        const publicId = publicIdWithExtension.replace(/\.[^/.]+$/, '');
+        // For raw files, we need to keep the extension in the public_id for proper deletion
+        // But for the public_id extraction, we should remove it for consistency
+        let publicId = publicIdWithExtension;
+        
+        // Check if this looks like our format (timestamp_filename)
+        if (publicIdWithExtension.includes('_')) {
+            // Remove file extension (everything after the last dot)
+            publicId = publicIdWithExtension.replace(/\.[^/.]+$/, '');
+        }
         
         console.log('Final extracted public_id:', publicId);
         return publicId;

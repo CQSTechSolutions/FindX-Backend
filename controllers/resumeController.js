@@ -55,7 +55,7 @@ export const uploadResume = async (req, res) => {
         }
 
         // Upload new resume to Cloudinary
-        console.log('Uploading new resume:', req.file.originalname, 'Size:', req.file.size, 'bytes');
+        console.log('Uploading new resume:', req.file.originalname, 'Size:', req.file.size, 'bytes', 'Type:', req.file.mimetype);
         const result = await uploadToCloudinary(
             req.file.buffer,
             req.file.originalname,
@@ -63,11 +63,30 @@ export const uploadResume = async (req, res) => {
         );
         console.log('New resume uploaded successfully. URL:', result.secure_url);
 
+        // Extract file extension from original filename
+        const fileExtension = req.file.originalname.split('.').pop().toLowerCase();
+        
+        // Create a proper download URL with correct file extension
+        let downloadUrl = result.secure_url;
+        
+        // For raw files, ensure the URL has the correct extension for proper download
+        if (!downloadUrl.includes(`.${fileExtension}`)) {
+            // If Cloudinary URL doesn't include extension, we'll modify it for downloads
+            const urlParts = downloadUrl.split('/');
+            const lastPart = urlParts[urlParts.length - 1];
+            if (!lastPart.includes('.')) {
+                urlParts[urlParts.length - 1] = `${lastPart}.${fileExtension}`;
+                downloadUrl = urlParts.join('/');
+            }
+        }
+
+        console.log('Final download URL:', downloadUrl);
+
         // Update user with new resume URL
         const updatedUser = await User.findByIdAndUpdate(
             userId,
             {
-                resume: result.secure_url,
+                resume: downloadUrl, // Store URL with proper extension
                 resume_downloadble: true // Set to true by default
             },
             { 
@@ -80,7 +99,14 @@ export const uploadResume = async (req, res) => {
             success: true,
             message: 'Resume uploaded successfully',
             user: updatedUser,
-            resumeUrl: result.secure_url
+            resumeUrl: downloadUrl,
+            fileInfo: {
+                originalName: req.file.originalname,
+                size: req.file.size,
+                type: req.file.mimetype,
+                extension: fileExtension,
+                cloudinaryPublicId: result.public_id
+            }
         });
 
     } catch (error) {
