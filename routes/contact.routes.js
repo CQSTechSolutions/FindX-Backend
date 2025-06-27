@@ -7,8 +7,7 @@ import {
     deleteContact,
     getContactDashboard
 } from '../controllers/contactController.js';
-import auth from '../middleware/auth.js';
-import employerAuth from '../middleware/employerAuth.js';
+    
 
 const router = express.Router();
 
