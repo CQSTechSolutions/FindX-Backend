@@ -22,14 +22,17 @@ export const uploadToCloudinary = async (fileBuffer, fileName, resourceType = 'r
             const fileExtension = cleanFileName.split('.').pop().toLowerCase();
             const fileNameWithoutExt = cleanFileName.replace(/\.[^/.]+$/, '');
             
-            // Create public_id with extension for proper file type handling
-            const publicId = `findx/resumes/${timestamp}_${fileNameWithoutExt}`;
+            // For raw files, include the extension in the public_id for proper deletion later
+            const publicId = resourceType === 'raw' 
+                ? `findx/resumes/${timestamp}_${fileNameWithoutExt}.${fileExtension}`
+                : `findx/resumes/${timestamp}_${fileNameWithoutExt}`;
             
             console.log('Uploading to Cloudinary:');
             console.log('- Original filename:', fileName);
             console.log('- Clean filename:', cleanFileName);
             console.log('- File extension:', fileExtension);
             console.log('- Public ID:', publicId);
+            console.log('- Resource type:', resourceType);
             
             const uploadStream = cloudinary.uploader.upload_stream(
                 {
@@ -39,6 +42,7 @@ export const uploadToCloudinary = async (fileBuffer, fileName, resourceType = 'r
                     use_filename: false, // Use our custom public_id
                     unique_filename: false, // We're handling uniqueness with timestamp
                     overwrite: true, // Allow overwriting if same public_id exists
+                    folder: null, // Folder is included in public_id
                 },
                 (error, result) => {
                     if (error) {
@@ -68,32 +72,65 @@ export const deleteFromCloudinary = async (publicId) => {
     try {
         console.log('Attempting to delete from Cloudinary with public_id:', publicId);
         
-        // Try deleting as 'raw' resource type first (for documents)
-        let result = await cloudinary.uploader.destroy(publicId, {
-            resource_type: 'raw'
-        });
+        // Check if the publicId indicates a raw file (has file extension)
+        const isRawFile = /\.[a-zA-Z0-9]+$/.test(publicId);
+        console.log('Is raw file (has extension):', isRawFile);
         
-        console.log('Cloudinary delete result (raw):', result);
+        let result;
         
-        // If deletion failed, try as 'image' resource type
-        if (result.result !== 'ok') {
-            console.log('Raw deletion failed, trying as image resource type...');
-            result = await cloudinary.uploader.destroy(publicId, {
-                resource_type: 'image'
-            });
-            console.log('Cloudinary delete result (image):', result);
+        if (isRawFile) {
+            // For raw files, try raw resource type first
+            console.log('Attempting to delete as raw file...');
+            try {
+                result = await cloudinary.uploader.destroy(publicId, {
+                    resource_type: 'raw'
+                });
+                console.log('Raw file deletion result:', result);
+            } catch (error) {
+                console.error('Error deleting raw file:', error);
+                result = { result: 'error', error };
+            }
+        } else {
+            // For non-raw files, try image first
+            console.log('Attempting to delete as image...');
+            try {
+                result = await cloudinary.uploader.destroy(publicId, {
+                    resource_type: 'image'
+                });
+                console.log('Image deletion result:', result);
+            } catch (error) {
+                console.error('Error deleting image:', error);
+                result = { result: 'error', error };
+            }
         }
         
-        // If still failed, try without specifying resource type
+        // If initial attempt failed, try other resource types
         if (result.result !== 'ok') {
-            console.log('Image deletion failed, trying without resource type...');
-            result = await cloudinary.uploader.destroy(publicId);
-            console.log('Cloudinary delete result (auto):', result);
+            console.log('Initial deletion attempt failed, trying alternative resource types...');
+            
+            const resourceTypes = isRawFile ? ['image', 'auto'] : ['raw', 'auto'];
+            
+            for (const resourceType of resourceTypes) {
+                try {
+                    console.log(`Attempting deletion with resource_type: ${resourceType}`);
+                    result = await cloudinary.uploader.destroy(publicId, 
+                        resourceType === 'auto' ? {} : { resource_type: resourceType }
+                    );
+                    console.log(`Deletion result for ${resourceType}:`, result);
+                    
+                    if (result.result === 'ok') {
+                        console.log(`Successfully deleted with resource_type: ${resourceType}`);
+                        break;
+                    }
+                } catch (error) {
+                    console.error(`Error deleting with resource_type ${resourceType}:`, error);
+                }
+            }
         }
         
         return result;
     } catch (error) {
-        console.error('Error deleting from Cloudinary:', error);
+        console.error('Error in deleteFromCloudinary:', error);
         throw error;
     }
 };
@@ -128,19 +165,21 @@ export const extractPublicIdFromUrl = (cloudinaryUrl) => {
             publicIdWithExtension = pathAfterUpload.substring(pathAfterUpload.indexOf('/') + 1);
             console.log('Removed version, new path:', publicIdWithExtension);
         }
+
+        // For raw files (like resumes), we need to KEEP the extension in the public_id
+        // Check if the URL contains /raw/ to determine if it's a raw file
+        const isRawFile = urlParts.includes('raw');
         
-        // For raw files, we need to keep the extension in the public_id for proper deletion
-        // But for the public_id extraction, we should remove it for consistency
-        let publicId = publicIdWithExtension;
-        
-        // Check if this looks like our format (timestamp_filename)
-        if (publicIdWithExtension.includes('_')) {
-            // Remove file extension (everything after the last dot)
-            publicId = publicIdWithExtension.replace(/\.[^/.]+$/, '');
+        if (isRawFile) {
+            // Keep the extension for raw files
+            console.log('Raw file detected, keeping extension in public_id:', publicIdWithExtension);
+            return publicIdWithExtension;
+        } else {
+            // For non-raw files (images, etc.), remove the extension
+            const publicId = publicIdWithExtension.replace(/\.[^/.]+$/, '');
+            console.log('Non-raw file, removed extension. Final public_id:', publicId);
+            return publicId;
         }
-        
-        console.log('Final extracted public_id:', publicId);
-        return publicId;
     } catch (error) {
         console.error('Error extracting public_id from URL:', error);
         return null;
