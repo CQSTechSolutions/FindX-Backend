@@ -12,6 +12,7 @@ import userSearchRoutes from './routes/userSearch.routes.js';
 import interviewRoutes from './routes/interview.routes.js';
 import broadcastRoutes from './routes/broadcast.routes.js';
 import paymentRoutes from './routes/payment.routes.js';
+import contactRoutes from './routes/contact.routes.js';
 
 dotenv.config();
 
@@ -79,6 +80,7 @@ app.use('/api/user-search', userSearchRoutes);
 app.use('/api/interviews', interviewRoutes);
 app.use('/api/broadcast', broadcastRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/contact', contactRoutes);
 
 // Error handling middleware
 app.use(errorHandler);
