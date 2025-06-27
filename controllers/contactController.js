@@ -1,5 +1,12 @@
 import Contact from '../models/Contact.model.js';
-import { errorResponse } from '../utils/errorResponse.js';
+
+// Helper function to send error responses
+const sendErrorResponse = (res, message, statusCode = 500) => {
+    return res.status(statusCode).json({
+        success: false,
+        message: message
+    });
+};
 
 // Submit contact form
 export const submitContactForm = async (req, res) => {
@@ -8,7 +15,7 @@ export const submitContactForm = async (req, res) => {
 
         // Validate required fields
         if (!name || !email || !subject || !message) {
-            return errorResponse(res, 'All required fields must be provided', 400);
+            return sendErrorResponse(res, 'All required fields must be provided', 400);
         }
 
         // Create contact record with additional metadata
@@ -51,15 +58,15 @@ export const submitContactForm = async (req, res) => {
         // Handle validation errors
         if (error.name === 'ValidationError') {
             const validationErrors = Object.values(error.errors).map(err => err.message);
-            return errorResponse(res, validationErrors.join(', '), 400);
+            return sendErrorResponse(res, validationErrors.join(', '), 400);
         }
 
         // Handle duplicate submissions (optional rate limiting)
         if (error.code === 11000) {
-            return errorResponse(res, 'A recent submission from this email already exists', 429);
+            return sendErrorResponse(res, 'A recent submission from this email already exists', 429);
         }
 
-        return errorResponse(res, 'Failed to submit contact form. Please try again.', 500);
+        return sendErrorResponse(res, 'Failed to submit contact form. Please try again.', 500);
     }
 };
 
@@ -112,7 +119,7 @@ export const getAllContacts = async (req, res) => {
 
     } catch (error) {
         console.error('Get contacts error:', error);
-        return errorResponse(res, 'Failed to retrieve contact submissions', 500);
+        return sendErrorResponse(res, 'Failed to retrieve contact submissions', 500);
     }
 };
 
@@ -124,7 +131,7 @@ export const getContactById = async (req, res) => {
         const contact = await Contact.findById(id);
 
         if (!contact) {
-            return errorResponse(res, 'Contact submission not found', 404);
+            return sendErrorResponse(res, 'Contact submission not found', 404);
         }
 
         res.json({
@@ -134,7 +141,7 @@ export const getContactById = async (req, res) => {
 
     } catch (error) {
         console.error('Get contact by ID error:', error);
-        return errorResponse(res, 'Failed to retrieve contact submission', 500);
+        return sendErrorResponse(res, 'Failed to retrieve contact submission', 500);
     }
 };
 
@@ -146,7 +153,7 @@ export const updateContactStatus = async (req, res) => {
 
         const validStatuses = ['new', 'in-progress', 'resolved', 'closed'];
         if (status && !validStatuses.includes(status)) {
-            return errorResponse(res, 'Invalid status value', 400);
+            return sendErrorResponse(res, 'Invalid status value', 400);
         }
 
         const updateData = {};
@@ -165,7 +172,7 @@ export const updateContactStatus = async (req, res) => {
         );
 
         if (!contact) {
-            return errorResponse(res, 'Contact submission not found', 404);
+            return sendErrorResponse(res, 'Contact submission not found', 404);
         }
 
         // Log the status update
@@ -179,7 +186,7 @@ export const updateContactStatus = async (req, res) => {
 
     } catch (error) {
         console.error('Update contact status error:', error);
-        return errorResponse(res, 'Failed to update contact status', 500);
+        return sendErrorResponse(res, 'Failed to update contact status', 500);
     }
 };
 
@@ -191,7 +198,7 @@ export const deleteContact = async (req, res) => {
         const contact = await Contact.findByIdAndDelete(id);
 
         if (!contact) {
-            return errorResponse(res, 'Contact submission not found', 404);
+            return sendErrorResponse(res, 'Contact submission not found', 404);
         }
 
         console.log(`Contact ${id} deleted by admin`);
@@ -203,7 +210,7 @@ export const deleteContact = async (req, res) => {
 
     } catch (error) {
         console.error('Delete contact error:', error);
-        return errorResponse(res, 'Failed to delete contact submission', 500);
+        return sendErrorResponse(res, 'Failed to delete contact submission', 500);
     }
 };
 
@@ -270,7 +277,7 @@ export const getContactDashboard = async (req, res) => {
 
     } catch (error) {
         console.error('Get contact dashboard error:', error);
-        return errorResponse(res, 'Failed to retrieve contact dashboard data', 500);
+        return sendErrorResponse(res, 'Failed to retrieve contact dashboard data', 500);
     }
 };
 
