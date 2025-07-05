@@ -723,7 +723,7 @@ export const getJobRecommendations = async (req, res, next) => {
         
         // Get user profile with all relevant data
         const user = await User.findById(userId).select(
-            'skills_and_capabilities work_history education dream_job_title preferred_job_types work_env_preferences relocation appliedJobs savedJobs highest_qualification known_language personal_summary hobbies next_role_info profileCompletionPercentage'
+            'skills_and_capabilities work_history education dream_job_title preferred_job_types work_env_preferences relocation appliedJobs savedJobs highest_qualification known_language personal_branding_statement hobbies next_role_info profileCompletionPercentage'
         );
 
         if (!user) {
@@ -733,13 +733,15 @@ export const getJobRecommendations = async (req, res, next) => {
             });
         }
 
-        // Enhanced profile completion check with more fields
+        // Enhanced profile completion check with correct field names
         const missingFields = [];
         const profileRequirements = {
             'skills_and_capabilities': 'Skills & Capabilities',
-            'personal_summary': 'Personal Summary',
+            'personal_branding_statement': 'Personal Summary',
             'dream_job_title': 'Dream Job Title',
-            'preferred_job_types': 'Preferred Job Types'
+            'preferred_job_types': 'Preferred Job Types',
+            'highest_qualification': 'Highest Qualification',
+            'work_env_preferences': 'Work Environment Preferences'
         };
 
         // Check required fields for better recommendations
@@ -749,16 +751,41 @@ export const getJobRecommendations = async (req, res, next) => {
             }
         }
 
+        // Additional checks for work history and education
+        if (!user.work_history || user.work_history.length === 0) {
+            missingFields.push('Work History');
+        }
+        if (!user.education || user.education.length === 0) {
+            missingFields.push('Education');
+        }
+
+        // Calculate profile completion score (out of 8 total fields)
+        const totalFields = 8;
+        const completedFields = totalFields - missingFields.length;
+        const completionPercentage = Math.round((completedFields / totalFields) * 100);
+
+        // More flexible profile completion requirements
+        const hasEssentialFields = user.skills_and_capabilities && user.skills_and_capabilities.length > 0;
+        const hasJobPreferences = user.dream_job_title || (user.preferred_job_types && user.preferred_job_types.length > 0);
+        const hasBasicInfo = user.highest_qualification || user.personal_branding_statement;
+
         // If critical fields are missing, return profile completion message
-        if (missingFields.length >= 3) { // Allow some flexibility
+        // Require at least essential fields (skills) plus either job preferences or basic info
+        if (!hasEssentialFields || (!hasJobPreferences && !hasBasicInfo)) {
             return res.json({
                 success: false,
                 profileIncomplete: true,
                 missingFields: missingFields,
+                completionPercentage: completionPercentage,
                 count: 0,
                 jobs: [],
                 message: `Complete your profile to get personalized recommendations. Missing: ${missingFields.join(', ')}`
             });
+        }
+
+        // If profile is somewhat complete but could be better
+        if (completionPercentage < 60) {
+            console.log(`User ${userId} has ${completionPercentage}% profile completion. Providing limited recommendations.`);
         }
 
         // Get open jobs with efficient query - only fetch necessary fields initially
