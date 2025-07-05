@@ -10,7 +10,10 @@ import {
     deleteMessage,
     getEmployerConversations,
     markAllMessagesAsRead,
-    getRecentMessages
+    getRecentMessages,
+    getUserMessages,
+    markMessageAsRead,
+    getUserUnreadMessageCount
 } from '../controllers/messageController.js';
 import { protect } from '../middleware/auth.js';
 import { protectEmployer } from '../middleware/employerAuth.js';
@@ -22,6 +25,9 @@ router.get('/user/:userId/:userType/conversations', protect, getUserConversation
 router.get('/user/:userId/applied-jobs', protect, getUserAppliedJobs);
 router.get('/user/:userId/unread-count', protect, getUnreadMessageCount);
 router.get('/user/:userId/recent', protect, getRecentMessages);
+router.get('/user/messages', protect, getUserMessages);
+router.get('/user/messages/unread-count', protect, getUserUnreadMessageCount);
+router.put('/user/messages/:messageId/read', protect, markMessageAsRead);
 router.get('/conversation/:userId1/:userId2/:jobId', protect, getConversationHistory);
 router.post('/send', protect, sendMessage);
 router.put('/mark-read', protect, markMessagesAsRead);

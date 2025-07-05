@@ -39,6 +39,26 @@ export const getAllJobs = async (req, res, next) => {
     }
 };
 
+// Get latest 8 jobs for home page (regardless of user skills/performance)
+export const getLatestJobs = async (req, res, next) => {
+    try {
+        const jobs = await Job.find({ 
+            status: 'Open' 
+        })
+            .populate('postedBy', 'companyName email companyLogo')
+            .sort('-createdAt')
+            .limit(8);
+
+        res.json({
+            success: true,
+            count: jobs.length,
+            jobs
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 // Get single job
 export const getJob = async (req, res, next) => {
     try {
@@ -779,11 +799,11 @@ export const getJobRecommendations = async (req, res, next) => {
             };
         });
 
-        // Get top 5 jobs with score > 15 (minimum threshold for relevance)
+        // Get top 6 jobs with score > 15 (minimum threshold for relevance)
         const topRecommendations = jobsWithScores
             .filter(item => item.score > 15)
             .sort((a, b) => b.score - a.score)
-            .slice(0, 5);
+            .slice(0, 6);
 
         // If we have top recommendations, fetch full job details
         if (topRecommendations.length > 0) {
@@ -1064,4 +1084,118 @@ const getEnhancedMatchReasons = (user, job) => {
     }
 
     return reasons.slice(0, 3); // Limit to top 3 reasons for clean UI
+};
+
+// Send promotion notifications to recommended users
+export const sendPromotionNotifications = async (req, res, next) => {
+    try {
+        const { jobId, promotionType } = req.body;
+        
+        // Get the job details
+        const job = await Job.findById(jobId).populate('postedBy', 'companyName');
+        
+        if (!job) {
+            return res.status(404).json({
+                success: false,
+                message: 'Job not found'
+            });
+        }
+        
+        // Check if employer is job owner
+        if (job.postedBy._id.toString() !== req.employer._id.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: 'You are not authorized to promote this job'
+            });
+        }
+        
+        // Get users who might be interested in this job
+        const potentialUsers = await User.find({
+            // Only users with completed profiles
+            isProfileCompleted: true,
+            // Exclude users who have already applied
+            appliedJobs: { $ne: jobId },
+            // Exclude users who have saved this job
+            savedJobs: { $ne: jobId }
+        }).select('_id skills_and_capabilities dream_job_title work_history preferred_job_types work_env_preferences messagesFromEmployer');
+        
+        const companyName = job.postedBy.companyName || 'Company';
+        const notifiedUsers = [];
+        
+        // Create promotion message for each matching user
+        for (const user of potentialUsers) {
+            // Calculate basic match score to determine if user should receive notification
+            const matchScore = calculateEnhancedRecommendationScore(user, job);
+            
+            // Only send to users with decent match score (>10)
+            if (matchScore > 10) {
+                let title, message;
+                
+                switch (promotionType) {
+                    case 'premium_listing':
+                        title = '🌟 Premium Job Match Found!';
+                        message = `${job.jobTitle} at ${companyName} is now a premium listing and matches your skills perfectly!`;
+                        break;
+                    case 'featured_job':
+                        title = '🔥 Featured Job Opportunity!';
+                        message = `${job.jobTitle} at ${companyName} is now featured and looking for candidates like you!`;
+                        break;
+                    case 'urgent_hiring':
+                        title = '⚡ Urgent Hiring Alert!';
+                        message = `${job.jobTitle} at ${companyName} is urgently hiring and you're a great match!`;
+                        break;
+                    case 'top_match':
+                        title = '🎯 Top Match Alert!';
+                        message = `${job.jobTitle} at ${companyName} is a top match for your skills and experience!`;
+                        break;
+                    default:
+                        title = '💼 New Job Promotion!';
+                        message = `${job.jobTitle} at ${companyName} has been promoted and matches your profile!`;
+                }
+                
+                const promotionMessage = {
+                    message: message,
+                    sender: req.employer._id,
+                    messageType: 'promotion',
+                    relatedJob: jobId,
+                    promotionData: {
+                        promotionType,
+                        originalMatchScore: matchScore,
+                        promotionBoostScore: matchScore * 1.5 // Boost score by 50%
+                    },
+                    isRead: false,
+                    priority: 'high',
+                    actionUrl: `/jobDetails?id=${jobId}`
+                };
+                
+                // Add message to user's messagesFromEmployer array
+                user.messagesFromEmployer.push(promotionMessage);
+                await user.save();
+                
+                notifiedUsers.push({
+                    userId: user._id,
+                    matchScore: Math.round(matchScore * 10) / 10
+                });
+            }
+        }
+        
+        // Update job with promotion status
+        await Job.findByIdAndUpdate(jobId, {
+            premiumListing: promotionType === 'premium_listing' ? true : job.premiumListing,
+            immediateStart: promotionType === 'urgent_hiring' ? true : job.immediateStart,
+            promotionType: promotionType,
+            promotedAt: new Date()
+        });
+        
+        res.json({
+            success: true,
+            message: `Promotion notifications sent to ${notifiedUsers.length} users`,
+            notifiedUsers: notifiedUsers,
+            promotionType: promotionType
+        });
+        
+    } catch (error) {
+        console.error('Error sending promotion notifications:', error);
+        next(error);
+    }
 }; 

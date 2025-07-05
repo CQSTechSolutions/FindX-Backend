@@ -2,6 +2,7 @@ import express from 'express';
 import {
     createJob,
     getAllJobs,
+    getLatestJobs,
     getJob,
     updateJob,
     deleteJob,
@@ -14,7 +15,8 @@ import {
     getApplicationResponses,
     getUserApplicationResponse,
     fixEmptyQuestionResponses,
-    getJobRecommendations
+    getJobRecommendations,
+    sendPromotionNotifications
 } from '../controllers/jobController.js';
 import { protect } from '../middleware/auth.js';
 import { protectEmployer } from '../middleware/employerAuth.js';
@@ -23,6 +25,7 @@ const router = express.Router();
 
 // Public routes
 router.get('/', getAllJobs);
+router.get('/latest', getLatestJobs);
 
 // Protected user routes - specific routes must come before parameterized routes
 router.get('/recommendations', protect, getJobRecommendations);
@@ -35,6 +38,7 @@ router.post('/:id/apply', protect, applyForJob);
 
 // Protected employer routes
 router.post('/', protectEmployer, createJob);
+router.post('/promotion/notify', protectEmployer, sendPromotionNotifications);
 router.put('/:id', protectEmployer, updateJob);
 router.put('/:id/status', protectEmployer, updateJobStatus);
 router.delete('/:id', protectEmployer, deleteJob);

@@ -686,4 +686,116 @@ export const deleteMessage = async (req, res, next) => {
             message: 'Server error while deleting message'
         });
     }
+};
+
+// Get all messages for a user (from messagesFromEmployer array)
+export const getUserMessages = async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+        
+        // Get user with messages populated
+        const user = await User.findById(userId)
+            .populate({
+                path: 'messagesFromEmployer.sender',
+                select: 'companyName email companyLogo'
+            })
+            .populate({
+                path: 'messagesFromEmployer.relatedJob',
+                select: 'jobTitle company jobLocation workspaceOption'
+            })
+            .select('messagesFromEmployer');
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        // Sort messages by newest first
+        const messages = user.messagesFromEmployer.sort((a, b) => 
+            new Date(b.createdAt) - new Date(a.createdAt)
+        );
+        
+        res.json({
+            success: true,
+            count: messages.length,
+            messages: messages
+        });
+        
+    } catch (error) {
+        console.error('Error fetching user messages:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error while fetching messages'
+        });
+    }
+};
+
+// Mark message as read
+export const markMessageAsRead = async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+        const { messageId } = req.params;
+        
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        const message = user.messagesFromEmployer.id(messageId);
+        if (!message) {
+            return res.status(404).json({
+                success: false,
+                message: 'Message not found'
+            });
+        }
+        
+        message.isRead = true;
+        await user.save();
+        
+        res.json({
+            success: true,
+            message: 'Message marked as read'
+        });
+        
+    } catch (error) {
+        console.error('Error marking message as read:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error while marking message as read'
+        });
+    }
+};
+
+// Get unread message count for a user (from messagesFromEmployer array)
+export const getUserUnreadMessageCount = async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+        
+        const user = await User.findById(userId).select('messagesFromEmployer');
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        const unreadCount = user.messagesFromEmployer.filter(msg => !msg.isRead).length;
+        
+        res.json({
+            success: true,
+            unreadCount: unreadCount
+        });
+        
+    } catch (error) {
+        console.error('Error getting unread message count:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error while getting unread message count'
+        });
+    }
 }; 

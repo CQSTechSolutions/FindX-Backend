@@ -54,16 +54,73 @@ const messagesFromEmployerSchema = new mongoose.Schema({
     sender: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Employer'
+    },
+    messageType: {
+        type: String,
+        enum: ['general', 'promotion', 'interview', 'application_update'],
+        default: 'general'
+    },
+    relatedJob: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Job',
+        required: false
+    },
+    promotionData: {
+        promotionType: {
+            type: String,
+            enum: ['premium_listing', 'featured_job', 'urgent_hiring', 'top_match'],
+            required: false
+        },
+        originalMatchScore: {
+            type: Number,
+            required: false
+        },
+        promotionBoostScore: {
+            type: Number,
+            required: false
+        }
+    },
+    isRead: {
+        type: Boolean,
+        default: false
+    },
+    priority: {
+        type: String,
+        enum: ['low', 'medium', 'high', 'urgent'],
+        default: 'medium'
+    },
+    actionUrl: {
+        type: String,
+        required: false
     }
-}, {_id: true});
+}, {_id: true, timestamps: true});
 
 const messagesToEmployerSchema = new mongoose.Schema({
     message: String,
     receiver: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Employer'
+    },
+    messageType: {
+        type: String,
+        enum: ['general', 'inquiry', 'application_question', 'follow_up'],
+        default: 'general'
+    },
+    relatedJob: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Job',
+        required: false
+    },
+    isRead: {
+        type: Boolean,
+        default: false
+    },
+    priority: {
+        type: String,
+        enum: ['low', 'medium', 'high', 'urgent'],
+        default: 'medium'
     }
-}, {_id: true});
+}, {_id: true, timestamps: true});
 
 const educationSchema = new mongoose.Schema({
     institute_name: String,
