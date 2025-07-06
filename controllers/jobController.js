@@ -1,10 +1,20 @@
 import Job from '../models/Job.model.js';
 import User from '../models/User.js';
+import Employer from '../models/employer.model.js';
 
 // Create a new job
 export const createJob = async (req, res, next) => {
     try {
         const jobData = req.body;
+        
+        // Fetch employer data to get company logo
+        if (jobData.postedBy) {
+            const employer = await Employer.findById(jobData.postedBy);
+            if (employer && employer.companyLogo) {
+                // Copy employer's company logo to job's company logo
+                jobData.companyLogo = employer.companyLogo;
+            }
+        }
         
         // No need to set up pay range as currency, from, and to are now direct fields in the model
         
