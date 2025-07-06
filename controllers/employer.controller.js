@@ -252,3 +252,37 @@ export const updatePricingPlan = async (req, res) => {
         });
     }
 }
+
+export const updateProfile = async (req, res) => {
+    try {
+        const profileData = req.body;
+        const employerId = req.employer._id; // From the auth middleware
+        
+        // Remove sensitive fields that shouldn't be updated through this endpoint
+        const { password, ...updateData } = profileData;
+        
+        const updatedEmployer = await Employer.findByIdAndUpdate(
+            employerId,
+            updateData,
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedEmployer) {
+            return res.status(404).json({ 
+                success: false,
+                message: "Employer not found" 
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            employer: updatedEmployer,
+            message: "Profile updated successfully"
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            success: false,
+            message: error.message 
+        });
+    }
+}
