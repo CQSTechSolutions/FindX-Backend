@@ -6,6 +6,15 @@ export const createJob = async (req, res, next) => {
     try {
         const jobData = req.body;
         
+        // Only use employer's company logo as fallback if no logo is provided
+        if (jobData.postedBy && (!jobData.companyLogo || jobData.companyLogo.trim() === '')) {
+            const employer = await Employer.findById(jobData.postedBy);
+            if (employer && employer.companyLogo) {
+                // Use employer's company logo as fallback
+                jobData.companyLogo = employer.companyLogo;
+            }
+        }
+        
         // No need to set up pay range as currency, from, and to are now direct fields in the model
         
         const job = await Job.create(jobData);
