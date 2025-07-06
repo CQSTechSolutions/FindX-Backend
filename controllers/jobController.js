@@ -7,11 +7,11 @@ export const createJob = async (req, res, next) => {
     try {
         const jobData = req.body;
         
-        // Fetch employer data to get company logo
-        if (jobData.postedBy) {
+        // Only use employer's company logo as fallback if no logo is provided
+        if (jobData.postedBy && (!jobData.companyLogo || jobData.companyLogo.trim() === '')) {
             const employer = await Employer.findById(jobData.postedBy);
             if (employer && employer.companyLogo) {
-                // Copy employer's company logo to job's company logo
+                // Use employer's company logo as fallback
                 jobData.companyLogo = employer.companyLogo;
             }
         }
