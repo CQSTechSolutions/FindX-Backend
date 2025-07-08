@@ -1,5 +1,6 @@
 import Job from '../models/Job.model.js';
 import User from '../models/User.js';
+import Employer from '../models/employer.model.js';
 
 // Create a new job
 export const createJob = async (req, res, next) => {

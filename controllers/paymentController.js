@@ -240,14 +240,56 @@ export const confirmPaymentSuccess = async (req, res) => {
                 receiptUrl: paymentIntent.charges?.data[0]?.receipt_url
             };
             await paymentRecord.save();
-        }
 
-        res.json({
-            success: true,
-            message: 'Payment confirmed successfully',
-            paymentIntent: paymentIntent,
-            paymentRecord: paymentRecord
-        });
+            // Auto-create job if this is a job posting payment and job data exists
+            let createdJob = null;
+            if (paymentRecord.type === 'job_posting' && paymentRecord.jobData && paymentRecord.employerId) {
+                try {
+                    // Get employer details for fallback logo
+                    const employer = await Employer.findById(paymentRecord.employerId);
+                    
+                    // Prepare job data
+                    const jobData = {
+                        ...paymentRecord.jobData,
+                        postedBy: paymentRecord.employerId,
+                        isPaid: true,
+                        status: 'Open',
+                        // Use employer's company logo as fallback if no logo provided
+                        companyLogo: paymentRecord.jobData.companyLogo || (employer && employer.companyLogo ? employer.companyLogo : '')
+                    };
+
+                    // Create the job
+                    createdJob = await Job.create(jobData);
+                    console.log('Auto-created job after payment:', createdJob._id);
+                    
+                    // Update payment record with job ID
+                    paymentRecord.jobId = createdJob._id;
+                    await paymentRecord.save();
+                } catch (jobCreationError) {
+                    console.error('Error auto-creating job after payment:', jobCreationError);
+                    // Don't fail the payment confirmation, just log the error
+                }
+            }
+
+            res.json({
+                success: true,
+                message: 'Payment confirmed successfully',
+                paymentIntent: paymentIntent,
+                paymentRecord: paymentRecord,
+                createdJob: createdJob ? {
+                    _id: createdJob._id,
+                    jobTitle: createdJob.jobTitle,
+                    status: createdJob.status
+                } : null
+            });
+        } else {
+            res.json({
+                success: true,
+                message: 'Payment confirmed successfully',
+                paymentIntent: paymentIntent,
+                paymentRecord: null
+            });
+        }
 
     } catch (error) {
         console.error('Error confirming payment:', error);
