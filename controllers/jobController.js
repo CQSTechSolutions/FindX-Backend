@@ -16,6 +16,43 @@ export const createJob = async (req, res, next) => {
             }
         }
         
+        // Process short description fields
+        if (jobData.shortDescription) {
+            // Ensure shortDescription is an array
+            if (Array.isArray(jobData.shortDescription)) {
+                // Filter out empty strings and trim whitespace
+                jobData.shortDescription = jobData.shortDescription
+                    .map(point => point.trim())
+                    .filter(point => point.length > 0);
+            } else if (typeof jobData.shortDescription === 'string') {
+                // If it's a string, split by comma and process
+                jobData.shortDescription = jobData.shortDescription
+                    .split(',')
+                    .map(point => point.trim())
+                    .filter(point => point.length > 0);
+            } else {
+                // If invalid format, set to empty array
+                jobData.shortDescription = [];
+            }
+        }
+        
+        // Ensure showShortDescription is a boolean
+        if (typeof jobData.showShortDescription !== 'boolean') {
+            jobData.showShortDescription = false;
+        }
+        
+        // If showShortDescription is false, clear shortDescription
+        if (!jobData.showShortDescription) {
+            jobData.shortDescription = [];
+        }
+        
+        // Log processed short description data for debugging
+        console.log('Processed short description data:', {
+            showShortDescription: jobData.showShortDescription,
+            shortDescription: jobData.shortDescription,
+            shortDescriptionLength: jobData.shortDescription?.length || 0
+        });
+        
         // No need to set up pay range as currency, from, and to are now direct fields in the model
         
         const job = await Job.create(jobData);
@@ -126,6 +163,43 @@ export const updateJob = async (req, res, next) => {
                 message: 'You are not authorized to update this job'
             });
         }
+
+        // Process short description fields (same logic as createJob)
+        if (jobData.shortDescription) {
+            // Ensure shortDescription is an array
+            if (Array.isArray(jobData.shortDescription)) {
+                // Filter out empty strings and trim whitespace
+                jobData.shortDescription = jobData.shortDescription
+                    .map(point => point.trim())
+                    .filter(point => point.length > 0);
+            } else if (typeof jobData.shortDescription === 'string') {
+                // If it's a string, split by comma and process
+                jobData.shortDescription = jobData.shortDescription
+                    .split(',')
+                    .map(point => point.trim())
+                    .filter(point => point.length > 0);
+            } else {
+                // If invalid format, set to empty array
+                jobData.shortDescription = [];
+            }
+        }
+        
+        // Ensure showShortDescription is a boolean
+        if (typeof jobData.showShortDescription !== 'boolean') {
+            jobData.showShortDescription = false;
+        }
+        
+        // If showShortDescription is false, clear shortDescription
+        if (!jobData.showShortDescription) {
+            jobData.shortDescription = [];
+        }
+        
+        // Log processed short description data for debugging
+        console.log('Updated job short description data:', {
+            showShortDescription: jobData.showShortDescription,
+            shortDescription: jobData.shortDescription,
+            shortDescriptionLength: jobData.shortDescription?.length || 0
+        });
 
         job = await Job.findByIdAndUpdate(
             req.params.id,

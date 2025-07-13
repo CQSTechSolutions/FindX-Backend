@@ -68,6 +68,15 @@ const jobSchema = new mongoose.Schema({
         required: true,
         trim: true
     },
+
+    shortDescription: {
+        type: [String],
+        default: [],
+    },
+    showShortDescription: {
+        type: Boolean,
+        default: false,
+    },
     
     // Employment Details
     workType: {
