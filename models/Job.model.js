@@ -191,7 +191,7 @@ const jobSchema = new mongoose.Schema({
     // Premium Listing Options
     premiumListing: {
         type: Boolean,
-        default: true,
+        default: false,
     },
     immediateStart: {
         type: Boolean,
