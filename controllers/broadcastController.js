@@ -17,7 +17,7 @@ const createTransporter = () => {
   });
 };
 
-// Send broadcast email to all users
+// Send broadcast email to all users (System/Admin only - removed employer access)
 export const sendBroadcastEmail = async (req, res) => {
   try {
     console.log('🚀 Broadcast email request received:', { 
