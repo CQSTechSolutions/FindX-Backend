@@ -27,9 +27,11 @@ const findSimilarUsers = async (jobData) => {
 
         // Get ALL users with skills (focus on skills rather than profile completion)
         let allUsers = await User.find({ 
-            skills_and_capabilities: { $exists: true, $ne: [], $not: { $size: 0 } }
+            skills_and_capabilities: { $exists: true, $ne: [], $not: { $size: 0 } },
+            // Exclude users who have marked this job category as not interested
+            notInterestedJobCategories: { $ne: jobData.subcategory }
         })
-            .select('name email skills_and_capabilities dream_job_title preferred_job_types work_env_preferences resident_country relocation highest_qualification personal_branding_statement resume work_history education achievements licenses hobbies social_links emergency_contact isProfileCompleted');
+            .select('name email skills_and_capabilities dream_job_title preferred_job_types work_env_preferences resident_country relocation highest_qualification personal_branding_statement resume work_history education achievements licenses hobbies social_links emergency_contact isProfileCompleted notInterestedJobCategories');
 
         console.log(`📊 Found ${allUsers.length} users with skills (regardless of profile completion)`);
 
@@ -1399,7 +1401,7 @@ export const getJobRecommendations = async (req, res, next) => {
         
         // Get user profile with all relevant data
         const user = await User.findById(userId).select(
-            'skills_and_capabilities work_history education dream_job_title preferred_job_types work_env_preferences relocation appliedJobs savedJobs highest_qualification known_language personal_branding_statement hobbies next_role_info profileCompletionPercentage'
+            'skills_and_capabilities work_history education dream_job_title preferred_job_types work_env_preferences relocation appliedJobs savedJobs highest_qualification known_language personal_branding_statement hobbies next_role_info profileCompletionPercentage notInterestedJobCategories'
         );
 
         if (!user) {
@@ -1487,9 +1489,13 @@ export const getJobRecommendations = async (req, res, next) => {
         const appliedJobIds = new Set(user.appliedJobs?.map(id => id.toString()) || []);
         const savedJobIds = new Set(user.savedJobs?.map(id => id.toString()) || []);
         
+        // Filter out jobs from categories user is not interested in
+        const notInterestedCategories = new Set(user.notInterestedJobCategories || []);
+        
         const availableJobs = allJobs.filter(job => 
             !appliedJobIds.has(job._id.toString()) && 
-            !savedJobIds.has(job._id.toString())
+            !savedJobIds.has(job._id.toString()) &&
+            !notInterestedCategories.has(job.subcategory)
         );
 
         // Calculate scores efficiently with enhanced algorithm
@@ -1863,8 +1869,10 @@ export const sendPromotionNotifications = async (req, res, next) => {
             // Exclude users who have already applied
             appliedJobs: { $ne: jobId },
             // Exclude users who have saved this job
-            savedJobs: { $ne: jobId }
-        }).select('_id name email skills_and_capabilities dream_job_title work_history preferred_job_types work_env_preferences messagesFromEmployer resident_country relocation highest_qualification personal_branding_statement resume education achievements licenses hobbies social_links emergency_contact');
+            savedJobs: { $ne: jobId },
+            // Exclude users who have marked this job category as not interested
+            notInterestedJobCategories: { $ne: job.subcategory }
+        }).select('_id name email skills_and_capabilities dream_job_title work_history preferred_job_types work_env_preferences messagesFromEmployer resident_country relocation highest_qualification personal_branding_statement resume education achievements licenses hobbies social_links emergency_contact notInterestedJobCategories');
         
         console.log(`📊 Found ${potentialUsers.length} potential users for promotion`);
         

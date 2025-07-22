@@ -80,7 +80,7 @@ const findSimilarUsers = async (jobData) => {
         let allUsers = await User.find({ 
             skills_and_capabilities: { $exists: true, $ne: [], $not: { $size: 0 } }
         })
-            .select('name email skills_and_capabilities dream_job_title preferred_job_types work_env_preferences resident_country relocation highest_qualification personal_branding_statement resume work_history education achievements licenses hobbies social_links emergency_contact isProfileCompleted');
+            .select('name email skills_and_capabilities dream_job_title preferred_job_types work_env_preferences resident_country relocation highest_qualification personal_branding_statement resume work_history education achievements licenses hobbies social_links emergency_contact isProfileCompleted notInterestedJobCategories');
 
         console.log(`📊 Found ${allUsers.length} users with skills (regardless of profile completion)`);
 

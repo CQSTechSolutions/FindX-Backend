@@ -1,7 +1,6 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import mongoose from 'mongoose';
-import bcrypt from "bcryptjs";
 import _ from 'lodash';
 
 // Register user
@@ -234,7 +233,7 @@ export const updateUserProfile = async (req, res, next) => {
       'cover_letter', 'dream_job_title', 'preferred_job_types',
       'work_env_preferences', 'relocation', 'personal_branding_statement',
       'hobbies', 'education', 'emergency_contact', 'social_links',
-      'work_history', 'savedJobs', 'isProfileCompleted', 'appliedJobs'
+      'work_history', 'savedJobs', 'isProfileCompleted', 'appliedJobs', 'notInterestedJobCategories'
     ];
 
     const invalidFields = Object.keys(updates).filter(
@@ -260,7 +259,7 @@ export const updateUserProfile = async (req, res, next) => {
 
 
     // Handle array and object fields specially to avoid merge issues
-    const arrayFields = ['work_history', 'licenses', 'education', 'skills_and_capabilities', 'achievements', 'known_language', 'preferred_job_types', 'work_env_preferences', 'hobbies', 'savedJobs', 'appliedJobs'];
+    const arrayFields = ['work_history', 'licenses', 'education', 'skills_and_capabilities', 'achievements', 'known_language', 'preferred_job_types', 'work_env_preferences', 'hobbies', 'savedJobs', 'appliedJobs', 'notInterestedJobCategories'];
     const objectFields = ['relocation', 'emergency_contact', 'social_links'];
 
     // Prepare update operations
@@ -406,7 +405,44 @@ export const updateSavedJobs = async (req, res, next) => {
     console.error("Error updating saved jobs:", error);
     return res.status(500).json({ 
       success: false, 
-      message: "Server error" 
+      message: "Error updating saved jobs" 
+    });
+  }
+};
+
+export const updateNotInterestedJobCategories = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { jobSubCategory } = req.body; // JUST 'remove'
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ 
+      success: false, 
+      message: "User not found" 
+    });
+
+    if (user.notInterestedJobCategories.includes(jobSubCategory)) {
+      user.notInterestedJobCategories = user.notInterestedJobCategories.filter(category => category !== jobSubCategory);
+    } else {
+      user.notInterestedJobCategories.push(jobSubCategory);
+    }
+
+    await user.save();
+    
+    // Get updated user data without sensitive fields
+    const updatedUser = await User.findById(userId).select('-password -passwordResetOtp -passwordResetExpire');
+    
+    return res.status(201).json({ 
+      success: true,
+      message: "Not interested job categories updated", 
+      notInterestedJobCategories: user.notInterestedJobCategories,
+      user: updatedUser
+    });
+  } catch (error) {
+    console.error("Error updating not interested job categories:", error);
+    return res.status(500).json({ 
+      success: false, 
+      message: "Error updating not interested job categories" 
     });
   }
 };
