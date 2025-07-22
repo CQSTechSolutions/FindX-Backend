@@ -8,13 +8,26 @@ const questionResponseSchema = new mongoose.Schema({
     },
     selectedOption: {
         type: String,
-        required: true
+        required: false, // Make optional to handle empty responses
+        default: ''
     },
     options: [{
         type: String,
         required: true
     }]
 }, { _id: false });
+
+// Add custom validation for question responses
+questionResponseSchema.pre('save', function(next) {
+    // Only validate if selectedOption is provided and not empty
+    if (this.selectedOption !== undefined && this.selectedOption !== null && this.selectedOption.trim() !== '') {
+        // Validate that selectedOption is one of the available options
+        if (!this.options.includes(this.selectedOption)) {
+            return next(new Error(`Selected option "${this.selectedOption}" is not one of the available options: ${this.options.join(', ')}`));
+        }
+    }
+    next();
+});
 
 const applicationResponseSchema = new mongoose.Schema({
     userId: {

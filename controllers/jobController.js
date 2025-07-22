@@ -549,48 +549,43 @@ export const applyForJob = async (req, res, next) => {
                 questionResponsesLength: questionResponses?.length || 0
             });
 
-            // Check if questionResponses array exists and has correct length
-            if (!questionResponses) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Please provide responses for application questions'
-                });
-            }
-
-            if (questionResponses.length !== job.applicationQuestions.length) {
-                return res.status(400).json({
-                    success: false,
-                    message: `Expected ${job.applicationQuestions.length} responses, but received ${questionResponses.length}`
-                });
-            }
-
-            // Validate each response
-            for (let i = 0; i < job.applicationQuestions.length; i++) {
-                const question = job.applicationQuestions[i];
-                const response = questionResponses[i];
-
-                console.log(`Validating question ${i + 1}:`, {
-                    question: question.question,
-                    required: question.required,
-                    response: response,
-                    selectedOption: response?.selectedOption,
-                    availableOptions: question.options
-                });
-
-                // Only require answers for mandatory questions
-                if (question.required && (!response || !response.selectedOption || response.selectedOption.trim() === '')) {
+            // If questionResponses is provided, validate it
+            if (questionResponses && questionResponses.length > 0) {
+                if (questionResponses.length !== job.applicationQuestions.length) {
                     return res.status(400).json({
                         success: false,
-                        message: `Please answer required question ${i + 1}: "${question.question}"`
+                        message: `Expected ${job.applicationQuestions.length} responses, but received ${questionResponses.length}`
                     });
                 }
 
-                // If response is provided, validate that selected option is one of the available options
-                if (response && response.selectedOption && response.selectedOption.trim() !== '' && !question.options.includes(response.selectedOption)) {
-                    return res.status(400).json({
-                        success: false,
-                        message: `Invalid option selected for question ${i + 1}. Selected: "${response.selectedOption}", Available: ${question.options.join(', ')}`
+                // Validate each response
+                for (let i = 0; i < job.applicationQuestions.length; i++) {
+                    const question = job.applicationQuestions[i];
+                    const response = questionResponses[i];
+
+                    console.log(`Validating question ${i + 1}:`, {
+                        question: question.question,
+                        required: question.required,
+                        response: response,
+                        selectedOption: response?.selectedOption,
+                        availableOptions: question.options
                     });
+
+                    // Only require answers for mandatory questions
+                    if (question.required && (!response || !response.selectedOption || response.selectedOption.trim() === '')) {
+                        return res.status(400).json({
+                            success: false,
+                            message: `Please answer required question ${i + 1}: "${question.question}"`
+                        });
+                    }
+
+                    // If response is provided, validate that selected option is one of the available options
+                    if (response && response.selectedOption && response.selectedOption.trim() !== '' && !question.options.includes(response.selectedOption)) {
+                        return res.status(400).json({
+                            success: false,
+                            message: `Invalid option selected for question ${i + 1}. Selected: "${response.selectedOption}", Available: ${question.options.join(', ')}`
+                        });
+                    }
                 }
             }
         }
@@ -603,7 +598,7 @@ export const applyForJob = async (req, res, next) => {
 
         // Add question responses if they exist
         if (job.applicationQuestions && job.applicationQuestions.length > 0 && questionResponses && questionResponses.length > 0) {
-            // Filter out empty responses and only include responses with valid selected options
+            // Include all responses, even empty ones, but only add non-empty ones to applicant data
             const validResponses = questionResponses
                 .map((response, index) => ({
                     question: job.applicationQuestions[index].question,
@@ -654,19 +649,25 @@ export const applyForJob = async (req, res, next) => {
         });
 
         // Create application response record if there are questions
-        if (job.applicationQuestions && job.applicationQuestions.length > 0 && questionResponses) {
+        if (job.applicationQuestions && job.applicationQuestions.length > 0) {
             try {
                 const ApplicationResponse = (await import('../models/application_response.model.js')).default;
+                
+                // Map all questions, including empty responses
+                const mappedResponses = job.applicationQuestions.map((question, index) => {
+                    const response = questionResponses ? questionResponses[index] : null;
+                    return {
+                        question: question.question,
+                        selectedOption: response?.selectedOption || '',
+                        options: question.options
+                    };
+                });
                 
                 const applicationResponse = new ApplicationResponse({
                     userId: req.user.id,
                     jobId: job._id,
                     jobPostedBy: job.postedBy,
-                    questionResponses: questionResponses.map((response, index) => ({
-                        question: job.applicationQuestions[index].question,
-                        selectedOption: response.selectedOption,
-                        options: job.applicationQuestions[index].options
-                    })),
+                    questionResponses: mappedResponses,
                     status: 'pending'
                 });
 
@@ -674,7 +675,16 @@ export const applyForJob = async (req, res, next) => {
                 console.log('Application response saved successfully');
             } catch (responseError) {
                 console.error('Error saving application response:', responseError);
+                
+                // Log detailed error information
+                if (responseError.name === 'ValidationError') {
+                    console.error('Validation errors:', responseError.errors);
+                } else if (responseError.code === 11000) {
+                    console.error('Duplicate key error - user may have already applied');
+                }
+                
                 // Don't fail the entire application if response saving fails
+                // But log it for debugging
             }
         }
 
@@ -960,12 +970,15 @@ export const getApplicationResponses = async (req, res, next) => {
             .populate('userId', 'name email')
             .sort('-submittedAt');
 
+        console.log(`Retrieved ${responses.length} application responses for job ${jobId}`);
+
         res.json({
             success: true,
             count: responses.length,
             responses
         });
     } catch (error) {
+        console.error('Error getting application responses:', error);
         next(error);
     }
 };
@@ -989,11 +1002,14 @@ export const getUserApplicationResponse = async (req, res, next) => {
             });
         }
 
+        console.log(`Retrieved application response for user ${req.user.id} and job ${jobId}`);
+
         res.json({
             success: true,
             response
         });
     } catch (error) {
+        console.error('Error getting user application response:', error);
         next(error);
     }
 };
