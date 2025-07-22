@@ -76,12 +76,13 @@ const findSimilarUsers = async (jobData) => {
 
         console.log('📋 Job Criteria:', jobCriteria);
 
-        // Get ALL users with completed profiles (not just location matches)
-        let allUsers = await User.find({ isProfileCompleted: true })
-            .select('name email skills_and_capabilities dream_job_title preferred_job_types work_env_preferences resident_country relocation highest_qualification personal_branding_statement resume work_history education achievements licenses hobbies social_links emergency_contact')
-            .limit(500); // Increased limit to get more users for analysis
+        // Get ALL users with skills (focus on skills rather than profile completion)
+        let allUsers = await User.find({ 
+            skills_and_capabilities: { $exists: true, $ne: [], $not: { $size: 0 } }
+        })
+            .select('name email skills_and_capabilities dream_job_title preferred_job_types work_env_preferences resident_country relocation highest_qualification personal_branding_statement resume work_history education achievements licenses hobbies social_links emergency_contact isProfileCompleted');
 
-        console.log(`📊 Found ${allUsers.length} users with completed profiles`);
+        console.log(`📊 Found ${allUsers.length} users with skills (regardless of profile completion)`);
 
         // Function to analyze profile completeness
         const analyzeProfileCompleteness = (user) => {
@@ -121,13 +122,216 @@ const findSimilarUsers = async (jobData) => {
             };
         };
 
+        // Enhanced location matching function
+        const analyzeLocationMatch = (userLocation, jobLocation, user = null) => {
+            if (!userLocation || !jobLocation) return { score: 0, matchType: 'No location data', details: [] };
+
+            const userLoc = userLocation.toLowerCase().trim();
+            const jobLoc = jobLocation.toLowerCase().trim();
+            
+            const details = [];
+            let score = 0;
+            let matchType = 'No match';
+
+            // Extract location components
+            const jobParts = jobLoc.split(',').map(part => part.trim());
+            const userParts = userLoc.split(',').map(part => part.trim());
+            
+            const jobCity = jobParts[0];
+            const jobCountry = jobParts[jobParts.length - 1];
+            const userCity = userParts[0];
+            const userCountry = userParts[userParts.length - 1];
+
+            // Perfect match (exact location)
+            if (userLoc === jobLoc) {
+                score = 100;
+                matchType = 'Perfect match';
+                details.push('Exact location match');
+            }
+            // Same city and country
+            else if (userCity === jobCity && userCountry === jobCountry) {
+                score = 95;
+                matchType = 'Same city and country';
+                details.push(`City: ${userCity}`, `Country: ${userCountry}`);
+            }
+            // Same city, different country (unlikely but possible)
+            else if (userCity === jobCity) {
+                score = 80;
+                matchType = 'Same city';
+                details.push(`City: ${userCity}`);
+            }
+            // Same country, different city
+            else if (userCountry === jobCountry) {
+                score = 70;
+                matchType = 'Same country';
+                details.push(`Country: ${userCountry}`);
+            }
+            // Partial city match (e.g., "New York" vs "NYC")
+            else if (userCity.includes(jobCity) || jobCity.includes(userCity)) {
+                score = 60;
+                matchType = 'Partial city match';
+                details.push(`Partial city: ${userCity} vs ${jobCity}`);
+            }
+            // Partial country match
+            else if (userCountry.includes(jobCountry) || jobCountry.includes(userCountry)) {
+                score = 50;
+                matchType = 'Partial country match';
+                details.push(`Partial country: ${userCountry} vs ${jobCountry}`);
+            }
+            // Check if user has preferred locations that match
+            else if (user && user.relocation?.preferred_location) {
+                const preferredLocations = Array.isArray(user.relocation.preferred_location) 
+                    ? user.relocation.preferred_location 
+                    : [user.relocation.preferred_location];
+                
+                for (const prefLoc of preferredLocations) {
+                    const prefLocLower = prefLoc.toLowerCase().trim();
+                    if (prefLocLower === jobLoc) {
+                        score = 85;
+                        matchType = 'Preferred location match';
+                        details.push(`Preferred location: ${prefLoc}`);
+                        break;
+                    } else if (prefLocLower.includes(jobCity) || jobCity.includes(prefLocLower)) {
+                        score = 75;
+                        matchType = 'Preferred city match';
+                        details.push(`Preferred city: ${prefLoc}`);
+                        break;
+                    } else if (prefLocLower.includes(jobCountry) || jobCountry.includes(prefLocLower)) {
+                        score = 65;
+                        matchType = 'Preferred country match';
+                        details.push(`Preferred country: ${prefLoc}`);
+                        break;
+                    }
+                }
+            }
+
+            return { score, matchType, details };
+        };
+
+        // Enhanced job title matching function with precise matching
+        const analyzeJobTitleMatch = (userJobTitle, jobTitle) => {
+            if (!userJobTitle || !jobTitle) return { score: 0, matchType: 'No job title data', details: [] };
+
+            const userTitle = userJobTitle.toLowerCase().trim();
+            const jobTitleLower = jobTitle.toLowerCase().trim();
+            
+            const details = [];
+            let score = 0;
+            let matchType = 'No match';
+
+            // Normalize job titles for better matching
+            const normalizeTitle = (title) => {
+                return title
+                    .toLowerCase()
+                    .trim()
+                    .replace(/[^\w\s]/g, ' ') // Remove special characters
+                    .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+                    .trim();
+            };
+
+            const normalizedUserTitle = normalizeTitle(userTitle);
+            const normalizedJobTitle = normalizeTitle(jobTitleLower);
+
+            // Perfect exact match (case-insensitive)
+            if (userTitle === jobTitleLower) {
+                score = 100;
+                matchType = 'Perfect exact match';
+                details.push('Exact job title match (case-insensitive)');
+            }
+            // Normalized perfect match
+            else if (normalizedUserTitle === normalizedJobTitle) {
+                score = 98;
+                matchType = 'Perfect normalized match';
+                details.push('Exact job title match (normalized)');
+            }
+            // Contains exact job title (bidirectional)
+            else if (userTitle.includes(jobTitleLower) || jobTitleLower.includes(userTitle)) {
+                score = 90;
+                matchType = 'Contains exact title';
+                details.push('Job title contains/contained in user preference');
+            }
+            // Contains normalized job title
+            else if (normalizedUserTitle.includes(normalizedJobTitle) || normalizedJobTitle.includes(normalizedUserTitle)) {
+                score = 85;
+                matchType = 'Contains normalized title';
+                details.push('Normalized job title contains/contained in user preference');
+            }
+            // Word-by-word matching
+            else {
+                const userWords = normalizedUserTitle.split(/\s+/).filter(word => word.length > 2);
+                const jobWords = normalizedJobTitle.split(/\s+/).filter(word => word.length > 2);
+                
+                if (userWords.length > 0 && jobWords.length > 0) {
+                    // Find exact word matches
+                    const exactWordMatches = userWords.filter(userWord => 
+                        jobWords.some(jobWord => userWord === jobWord)
+                    );
+                    
+                    // Find partial word matches
+                    const partialWordMatches = userWords.filter(userWord => 
+                        jobWords.some(jobWord => 
+                            userWord.includes(jobWord) || jobWord.includes(userWord)
+                        )
+                    );
+                    
+                    const totalMatches = exactWordMatches.length + partialWordMatches.length;
+                    const maxWords = Math.max(userWords.length, jobWords.length);
+                    const wordMatchPercentage = (totalMatches / maxWords) * 100;
+                    
+                    if (wordMatchPercentage >= 80) {
+                        score = 80;
+                        matchType = 'High word similarity';
+                        details.push(`Exact word matches: ${exactWordMatches.join(', ')}`);
+                        details.push(`Partial word matches: ${partialWordMatches.join(', ')}`);
+                        details.push(`Word similarity: ${wordMatchPercentage.toFixed(1)}%`);
+                    } else if (wordMatchPercentage >= 60) {
+                        score = 65;
+                        matchType = 'Medium word similarity';
+                        details.push(`Exact word matches: ${exactWordMatches.join(', ')}`);
+                        details.push(`Partial word matches: ${partialWordMatches.join(', ')}`);
+                        details.push(`Word similarity: ${wordMatchPercentage.toFixed(1)}%`);
+                    } else if (wordMatchPercentage >= 40) {
+                        score = 50;
+                        matchType = 'Low word similarity';
+                        details.push(`Exact word matches: ${exactWordMatches.join(', ')}`);
+                        details.push(`Partial word matches: ${partialWordMatches.join(', ')}`);
+                        details.push(`Word similarity: ${wordMatchPercentage.toFixed(1)}%`);
+                    }
+                }
+                
+                // Check for role level matches if no word matches found
+                if (score === 0) {
+                    const roleLevels = ['senior', 'junior', 'lead', 'principal', 'staff', 'associate', 'entry', 'mid', 'senior'];
+                    const userLevel = roleLevels.find(level => userTitle.includes(level));
+                    const jobLevel = roleLevels.find(level => jobTitleLower.includes(level));
+                    
+                    if (userLevel && jobLevel && userLevel === jobLevel) {
+                        score = 40;
+                        matchType = 'Role level match';
+                        details.push(`Role level: ${userLevel}`);
+                    }
+                }
+            }
+
+            return { 
+                score, 
+                matchType, 
+                details,
+                originalUserTitle: userJobTitle,
+                originalJobTitle: jobTitle,
+                normalizedUserTitle,
+                normalizedJobTitle
+            };
+        };
+
         // Score and rank ALL users based on multiple criteria
         const scoredUsers = allUsers.map(user => {
-            let score = 0;
+            let totalScore = 0;
             const matchDetails = [];
             const profileAnalysis = analyzeProfileCompleteness(user);
 
-            // 1. Skills matching (highest weight)
+            // 1. Enhanced Skills matching (highest weight - 40%)
+            let skillsScore = 0;
             if (user.skills_and_capabilities && jobCriteria.jobSkills.length > 0) {
                 const userSkills = user.skills_and_capabilities.map(skill => skill.toLowerCase());
                 const jobSkills = jobCriteria.jobSkills.map(skill => skill.toLowerCase());
@@ -139,68 +343,38 @@ const findSimilarUsers = async (jobData) => {
                 );
                 
                 const skillMatchPercentage = (matchingSkills.length / jobSkills.length) * 100;
-                score += skillMatchPercentage * 0.4; // 40% weight
+                skillsScore = skillMatchPercentage;
                 matchDetails.push(`Skills: ${matchingSkills.length}/${jobSkills.length} (${skillMatchPercentage.toFixed(1)}%)`);
             }
+            totalScore += skillsScore * 0.4; // 40% weight
 
-            // 2. Job title matching
-            if (user.dream_job_title && jobCriteria.jobTitle) {
-                const userTitle = user.dream_job_title.toLowerCase();
-                const jobTitle = jobCriteria.jobTitle.toLowerCase();
-                
-                if (userTitle.includes(jobTitle) || jobTitle.includes(userTitle)) {
-                    score += 25;
-                    matchDetails.push('Job title match');
-                }
-            }
+            // 2. Enhanced Job title matching (25% weight)
+            const jobTitleAnalysis = analyzeJobTitleMatch(user.dream_job_title, jobCriteria.jobTitle);
+            const jobTitleScore = jobTitleAnalysis.score;
+            totalScore += jobTitleScore * 0.25; // 25% weight
+            matchDetails.push(`Job Title: ${jobTitleAnalysis.matchType} (${jobTitleScore}%)`);
 
-            // 3. Work type preference
+            // 3. Enhanced Location matching (20% weight)
+            const locationAnalysis = analyzeLocationMatch(user.resident_country, jobCriteria.jobLocation, user);
+            const locationScore = locationAnalysis.score;
+            totalScore += locationScore * 0.2; // 20% weight
+            matchDetails.push(`Location: ${locationAnalysis.matchType} (${locationScore}%)`);
+
+            // 4. Work type preference (10% weight)
+            let workTypeScore = 0;
             if (user.preferred_job_types && user.preferred_job_types.includes(jobCriteria.workType)) {
-                score += 15;
+                workTypeScore = 100;
                 matchDetails.push('Work type preference match');
             }
+            totalScore += workTypeScore * 0.1; // 10% weight
 
-            // 4. Work environment preference
+            // 5. Work environment preference (5% weight)
+            let workEnvScore = 0;
             if (user.work_env_preferences && user.work_env_preferences.includes(jobCriteria.workspaceOption)) {
-                score += 10;
-                matchDetails.push('Work environment preference match');
-            }
-
-            // 5. Location matching
-            if (jobCriteria.jobLocation && user.resident_country) {
-                const locationParts = jobCriteria.jobLocation.split(',').map(part => part.trim());
-                const country = locationParts[locationParts.length - 1];
-                const city = locationParts[0];
-                
-                if (user.resident_country.toLowerCase().includes(country.toLowerCase()) ||
-                    user.resident_country.toLowerCase().includes(city.toLowerCase()) ||
-                    user.resident_country.toLowerCase().includes(jobCriteria.jobLocation.toLowerCase())) {
-                    score += 20;
-                    matchDetails.push('Location match');
-                } else if (user.relocation?.preferred_location) {
-                    const preferredLocations = Array.isArray(user.relocation.preferred_location) 
-                        ? user.relocation.preferred_location 
-                        : [user.relocation.preferred_location];
-                    
-                    const hasPreferredLocationMatch = preferredLocations.some(location =>
-                        location.toLowerCase().includes(country.toLowerCase()) ||
-                        location.toLowerCase().includes(city.toLowerCase()) ||
-                        location.toLowerCase().includes(jobCriteria.jobLocation.toLowerCase())
-                    );
-                    
-                    if (hasPreferredLocationMatch) {
-                        score += 15;
-                        matchDetails.push('Preferred location match');
-                    }
+                workEnvScore = 100;
+                    matchDetails.push('Work environment preference match');
                 }
-            }
-
-            // 6. Profile completeness bonus (up to 10 points)
-            const completenessBonus = Math.round(profileAnalysis.completionPercentage * 0.1);
-            score += completenessBonus;
-            if (completenessBonus > 0) {
-                matchDetails.push(`Profile completeness: ${profileAnalysis.completionPercentage}% (+${completenessBonus} points)`);
-            }
+            totalScore += workEnvScore * 0.05; // 5% weight
 
             return {
                 user: {
@@ -215,35 +389,60 @@ const findSimilarUsers = async (jobData) => {
                     highest_qualification: user.highest_qualification,
                     personal_branding_statement: user.personal_branding_statement
                 },
-                score: Math.round(score),
+                score: Math.round(totalScore),
                 matchDetails,
-                profileAnalysis
+                profileAnalysis,
+                detailedAnalysis: {
+                    skillsScore: Math.round(skillsScore),
+                    jobTitleScore: Math.round(jobTitleScore),
+                    locationScore: Math.round(locationScore),
+                    workTypeScore: Math.round(workTypeScore),
+                    workEnvScore: Math.round(workEnvScore),
+                    jobTitleAnalysis,
+                    locationAnalysis
+                }
             };
         });
 
-        // Sort by score (highest first) and get top matches
+        // Sort by score (highest first) and get ALL matches (no artificial limits)
+        // FIXED: Include ALL users with completed profiles, regardless of score
         const topMatches = scoredUsers
-            .filter(user => user.score > 0) // Include all users with any match score
-            .sort((a, b) => b.score - a.score)
-            .slice(0, 100); // Top 100 matches
+            .sort((a, b) => b.score - a.score); // ALL matches, no limit, no score filtering
 
         // Enhanced console logging with detailed information
-        console.log('\n🎯 ===== PAYMENT JOB MATCHING ANALYSIS =====');
+        console.log('\n🎯 ===== PAYMENT PERFECT JOB MATCHING ANALYSIS =====');
         console.log(`📋 Job: ${jobCriteria.jobTitle}`);
         console.log(`📍 Location: ${jobCriteria.jobLocation}`);
         console.log(`💼 Work Type: ${jobCriteria.workType}`);
         console.log(`🏢 Work Environment: ${jobCriteria.workspaceOption}`);
         console.log(`🔧 Required Skills: ${jobCriteria.jobSkills.join(', ')}`);
         console.log(`📊 Total Users Analyzed: ${allUsers.length}`);
-        console.log(`🎯 Users with Match Score > 0: ${topMatches.length}`);
+        console.log(`🎯 Users to Receive Emails: ${topMatches.length} (ALL users with completed profiles)`);
         console.log('');
 
         // Show top matches with detailed information
-        console.log('🏆 TOP MATCHES:');
+        console.log('🏆 TOP PERFECT MATCHES:');
         topMatches.slice(0, 20).forEach((match, index) => {
             console.log(`\n${index + 1}. ${match.user.name} (${match.user.email})`);
-            console.log(`   📊 Match Score: ${match.score}/100`);
+            console.log(`   📊 Total Match Score: ${match.score}/100`);
             console.log(`   📈 Profile Completion: ${match.profileAnalysis.completionPercentage}%`);
+            
+            // Detailed breakdown
+            console.log(`   🔧 Skills Score: ${match.detailedAnalysis.skillsScore}/100`);
+            console.log(`   💼 Job Title Score: ${match.detailedAnalysis.jobTitleScore}/100 (${match.detailedAnalysis.jobTitleAnalysis.matchType})`);
+            console.log(`   📍 Location Score: ${match.detailedAnalysis.locationScore}/100 (${match.detailedAnalysis.locationAnalysis.matchType})`);
+            console.log(`   ⚡ Work Type Score: ${match.detailedAnalysis.workTypeScore}/100`);
+            console.log(`   🏢 Work Environment Score: ${match.detailedAnalysis.workEnvScore}/100`);
+            
+            // Enhanced job title details
+            const titleAnalysis = match.detailedAnalysis.jobTitleAnalysis;
+            console.log(`   📋 Job Title Analysis:`);
+            console.log(`      Original Job Title: "${titleAnalysis.originalJobTitle}"`);
+            console.log(`      User Dream Job: "${titleAnalysis.originalUserTitle}"`);
+            console.log(`      Normalized Job: "${titleAnalysis.normalizedJobTitle}"`);
+            console.log(`      Normalized User: "${titleAnalysis.normalizedUserTitle}"`);
+            console.log(`      Match Details: ${titleAnalysis.details.join(', ')}`);
+            
             console.log(`   🎯 Match Details: ${match.matchDetails.join(', ')}`);
             
             if (match.profileAnalysis.missingFields.length > 0) {
@@ -257,9 +456,45 @@ const findSimilarUsers = async (jobData) => {
             console.log(`   🔧 Skills: ${match.user.skills_and_capabilities?.slice(0, 5).join(', ') || 'None'}${match.user.skills_and_capabilities?.length > 5 ? '...' : ''}`);
         });
 
+        // Show perfect matches (score >= 90)
+        const perfectMatches = topMatches.filter(match => match.score >= 90);
+        if (perfectMatches.length > 0) {
+            console.log('\n🌟 PERFECT MATCHES (Score >= 90):');
+            perfectMatches.forEach((match, index) => {
+            console.log(`${index + 1}. ${match.user.name} (${match.user.email}) - Score: ${match.score}`);
+                console.log(`   💼 Job Title: "${match.detailedAnalysis.jobTitleAnalysis.originalJobTitle}" vs "${match.detailedAnalysis.jobTitleAnalysis.originalUserTitle}"`);
+                console.log(`   📍 Location: ${match.detailedAnalysis.locationAnalysis.matchType}`);
+                console.log(`   🔧 Skills: ${match.detailedAnalysis.skillsScore}/100`);
+            });
+        }
+
+        // Show location-specific matches
+        const locationMatches = topMatches.filter(match => match.detailedAnalysis.locationScore >= 70);
+        if (locationMatches.length > 0) {
+            console.log('\n📍 STRONG LOCATION MATCHES (Score >= 70):');
+            locationMatches.slice(0, 10).forEach((match, index) => {
+                console.log(`${index + 1}. ${match.user.name} (${match.user.email})`);
+                console.log(`   📍 Location: ${match.user.resident_country} - ${match.detailedAnalysis.locationAnalysis.matchType}`);
+                console.log(`   💼 Job Title: "${match.detailedAnalysis.jobTitleAnalysis.originalJobTitle}" vs "${match.detailedAnalysis.jobTitleAnalysis.originalUserTitle}"`);
+                console.log(`   📊 Total Score: ${match.score}/100`);
+            });
+        }
+
+        // Show job title-specific matches
+        const jobTitleMatches = topMatches.filter(match => match.detailedAnalysis.jobTitleScore >= 70);
+        if (jobTitleMatches.length > 0) {
+            console.log('\n💼 STRONG JOB TITLE MATCHES (Score >= 70):');
+            jobTitleMatches.slice(0, 10).forEach((match, index) => {
+                console.log(`${index + 1}. ${match.user.name} (${match.user.email})`);
+                console.log(`   💼 Job Title: "${match.detailedAnalysis.jobTitleAnalysis.originalJobTitle}" vs "${match.detailedAnalysis.jobTitleAnalysis.originalUserTitle}"`);
+                console.log(`   📍 Location: ${match.user.resident_country} - ${match.detailedAnalysis.locationAnalysis.matchType}`);
+                console.log(`   📊 Total Score: ${match.score}/100`);
+            });
+        }
+
         // Show users with low scores but complete profiles
         const lowScoreCompleteProfiles = scoredUsers
-            .filter(user => user.score <= 10 && user.profileAnalysis.completionPercentage >= 80)
+            .filter(user => user.score <= 20 && user.profileAnalysis.completionPercentage >= 80)
             .sort((a, b) => b.profileAnalysis.completionPercentage - a.profileAnalysis.completionPercentage)
             .slice(0, 10);
 
@@ -329,7 +564,24 @@ const findSimilarUsers = async (jobData) => {
             });
         }
 
-        console.log('\n✅ ===== PAYMENT ANALYSIS COMPLETE =====\n');
+        // Show matching statistics
+        const matchStats = {
+            'Perfect (90-100)': topMatches.filter(m => m.score >= 90).length,
+            'Excellent (80-89)': topMatches.filter(m => m.score >= 80 && m.score < 90).length,
+            'Good (70-79)': topMatches.filter(m => m.score >= 70 && m.score < 80).length,
+            'Fair (60-69)': topMatches.filter(m => m.score >= 60 && m.score < 70).length,
+            'Poor (1-59)': topMatches.filter(m => m.score >= 1 && m.score < 60).length
+        };
+
+        console.log('\n🎯 MATCH QUALITY DISTRIBUTION:');
+        Object.entries(matchStats).forEach(([range, count]) => {
+            if (count > 0) {
+                const percentage = Math.round((count / topMatches.length) * 100);
+                console.log(`   ${range}: ${count} users (${percentage}%)`);
+            }
+        });
+
+        console.log('\n✅ ===== PAYMENT SKILLS-BASED ANALYSIS COMPLETE =====\n');
 
         return {
             jobTitle: jobCriteria.jobTitle,
@@ -337,11 +589,14 @@ const findSimilarUsers = async (jobData) => {
             totalCandidates: allUsers.length,
             topMatches: topMatches.length,
             matches: topMatches,
+            perfectMatches: perfectMatches.length,
             analysis: {
                 totalUsersAnalyzed: allUsers.length,
                 usersWithMatchScore: topMatches.length,
+                perfectMatches: perfectMatches.length,
                 completionStats,
-                mostCommonMissingFields: sortedMissingFields
+                mostCommonMissingFields: sortedMissingFields,
+                matchQualityStats: matchStats
             }
         };
 
@@ -561,10 +816,10 @@ export const confirmPaymentSuccess = async (req, res) => {
                         status: 'Open',
                         // Use employer's company logo as fallback if no logo provided
                         companyLogo: paymentRecord.jobData.companyLogo || (employer && employer.companyLogo ? employer.companyLogo : ''),
-                        // Ensure required fields have fallback values
-                        jobTitle: paymentRecord.jobData.jobTitle || 'Job Posting',
+                        // Ensure required fields have fallback values - handle both 'title' and 'jobTitle' fields
+                        jobTitle: paymentRecord.jobData.jobTitle || paymentRecord.jobData.title || 'Job Posting',
                         jobDescription: paymentRecord.jobData.jobDescription || 'Job description will be provided',
-                        jobLocation: paymentRecord.jobData.jobLocation || 'Location TBD',
+                        jobLocation: paymentRecord.jobData.jobLocation || paymentRecord.jobData.location || 'Location TBD',
                         workspaceOption: paymentRecord.jobData.workspaceOption || 'On-site',
                         category: paymentRecord.jobData.category || 'General',
                         subcategory: paymentRecord.jobData.subcategory || 'Other',
@@ -572,7 +827,10 @@ export const confirmPaymentSuccess = async (req, res) => {
                         payType: paymentRecord.jobData.payType || 'Monthly salary',
                         currency: paymentRecord.jobData.currency || 'USD',
                         from: paymentRecord.jobData.from || 0,
-                        to: paymentRecord.jobData.to || 0
+                        to: paymentRecord.jobData.to || 0,
+                        // Ensure job skills are properly mapped
+                        jobSkills: paymentRecord.jobData.jobSkills || paymentRecord.jobData.skills || [],
+                        jobKeywords: paymentRecord.jobData.jobKeywords || paymentRecord.jobData.keywords || []
                     };
 
                     // Debug: Log the processed job data
@@ -606,7 +864,7 @@ export const confirmPaymentSuccess = async (req, res) => {
                     
                      // Send job alert emails to matched users (ONLY from payment flow)
                      if (userMatches.matches && userMatches.matches.length > 0) {
-                         console.log(`📧 Sending BCC job alert emails to ${userMatches.matches.length} matched users for job: ${jobData.jobTitle}`);
+                         console.log(`📧 Sending BCC job alert emails to ${userMatches.matches.length} users with skills for job: ${jobData.jobTitle}`);
                          // Extract user objects from the matches (which contain user, score, matchDetails)
                          const matchedUsers = userMatches.matches.map(match => match.user);
                          const emailResult = await sendJobAlertEmails(createdJob, matchedUsers);

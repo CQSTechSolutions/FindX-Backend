@@ -80,26 +80,32 @@ export const sendJobAlertEmails = async (jobData, matchedUsers) => {
     console.log('🔍 User emails:', userEmails);
     console.log('🔍 Job data:', jobData);
     
-    // Prepare job alert email content
-    const jobTitle = jobData.jobTitle;
+    // Prepare job alert email content with exact job title
+    const exactJobTitle = jobData.jobTitle || 'Job Position'; // Use exact job title
     const companyName = jobData.companyName || jobData.postedBy?.companyName || 'Our Company';
-    const jobLocation = jobData.jobLocation;
-    const workType = jobData.workType;
-    const workspaceOption = jobData.workspaceOption;
+    const jobLocation = jobData.jobLocation || 'Location not specified';
+    const workType = jobData.workType || 'Work type not specified';
+    const workspaceOption = jobData.workspaceOption || 'Work environment not specified';
     const salaryRange = jobData.from && jobData.to ? 
-      `${jobData.currency} ${jobData.from.toLocaleString()} - ${jobData.to.toLocaleString()}` : 
+      `${jobData.currency || '$'} ${jobData.from.toLocaleString()} - ${jobData.to.toLocaleString()}` : 
       'Competitive salary';
+    
+    // Get job skills for email content
+    const jobSkills = jobData.jobSkills && jobData.jobSkills.length > 0 ? 
+      jobData.jobSkills.join(', ') : 'Skills not specified';
 
-    // Create job alert email content
-    const title = `💼 New Job Alert: ${jobTitle} at ${companyName}`;
+    // Create job alert email content with exact title
+    const title = `💼 New Job Alert: "${exactJobTitle}" at ${companyName}`;
     const body = `
 🎯 Perfect Match! This job matches your profile and preferences.
 
-Company: ${companyName}
-Location: ${jobLocation}
-Work Type: ${workType}
-Work Environment: ${workspaceOption}
-Salary Range: ${salaryRange}
+📋 Job Title: "${exactJobTitle}"
+🏢 Company: ${companyName}
+📍 Location: ${jobLocation}
+💼 Work Type: ${workType}
+🏠 Work Environment: ${workspaceOption}
+💰 Salary Range: ${salaryRange}
+🔧 Required Skills: ${jobSkills}
 
 View Job Details & Apply: ${process.env.CLIENT_URL || 'https://findx.com'}/job-details/${jobData._id}
 
@@ -124,7 +130,7 @@ You received this email because this job matches your profile and preferences.
       label: 'New Job Alert'
     };
 
-    // Create HTML email template for job alert
+    // Create HTML email template for job alert with exact title
     const htmlTemplate = `
     <!DOCTYPE html>
     <html lang="en">
@@ -157,12 +163,63 @@ You received this email because this job matches your profile and preferences.
             .logo {
                 font-size: 24px;
                 font-weight: bold;
-                color: #3B82F6;
+                color: #10B981;
                 margin-bottom: 10px;
             }
-            .job-alert-badge {
-                background: linear-gradient(135deg, #10B981, #059669);
+            .job-title {
+                font-size: 20px;
+                font-weight: bold;
+                color: #1F2937;
+                margin-bottom: 20px;
+                text-align: center;
+                background: #F3F4F6;
+                padding: 15px;
+                border-radius: 8px;
+                border-left: 4px solid #10B981;
+            }
+            .job-details {
+                background: #F9FAFB;
+                padding: 20px;
+                border-radius: 8px;
+                margin: 20px 0;
+            }
+            .detail-row {
+                display: flex;
+                margin-bottom: 12px;
+                align-items: center;
+            }
+            .detail-label {
+                font-weight: 600;
+                color: #374151;
+                min-width: 120px;
+                margin-right: 15px;
+            }
+            .detail-value {
+                color: #1F2937;
+                flex: 1;
+            }
+            .cta-button {
+                display: inline-block;
+                background: #10B981;
                 color: white;
+                padding: 12px 24px;
+                text-decoration: none;
+                border-radius: 6px;
+                font-weight: 600;
+                margin: 20px 0;
+                text-align: center;
+            }
+            .footer {
+                margin-top: 30px;
+                padding-top: 20px;
+                border-top: 1px solid #e5e7eb;
+                font-size: 14px;
+                color: #6B7280;
+                text-align: center;
+            }
+            .match-badge {
+                background: #DEF7EC;
+                color: #03543F;
                 padding: 8px 16px;
                 border-radius: 20px;
                 font-size: 14px;
@@ -170,97 +227,45 @@ You received this email because this job matches your profile and preferences.
                 display: inline-block;
                 margin-bottom: 20px;
             }
-            .job-title {
-                font-size: 24px;
-                font-weight: bold;
-                color: #1F2937;
-                margin-bottom: 15px;
-            }
-            .job-details {
-                background: #f9fafb;
-                padding: 20px;
-                border-radius: 8px;
-                margin: 20px 0;
-            }
-            .detail-row {
-                display: flex;
-                justify-content: space-between;
-                margin-bottom: 10px;
-                padding-bottom: 10px;
-                border-bottom: 1px solid #e5e7eb;
-            }
-            .detail-row:last-child {
-                border-bottom: none;
-                margin-bottom: 0;
-            }
-            .detail-label {
-                font-weight: 600;
-                color: #6B7280;
-            }
-            .detail-value {
-                color: #1F2937;
-            }
-            .cta-button {
-                display: inline-block;
-                background: linear-gradient(135deg, #3B82F6, #2563EB);
-                color: white;
-                padding: 12px 24px;
-                text-decoration: none;
-                border-radius: 8px;
-                font-weight: 600;
-                margin: 20px 0;
-                text-align: center;
-            }
-            .footer {
-                text-align: center;
-                margin-top: 30px;
-                padding-top: 20px;
-                border-top: 1px solid #e5e7eb;
-                color: #6B7280;
-                font-size: 14px;
-            }
-            .match-info {
-                background: #EFF6FF;
-                border: 1px solid #BFDBFE;
-                border-radius: 8px;
-                padding: 15px;
-                margin: 20px 0;
-            }
         </style>
     </head>
     <body>
         <div class="container">
             <div class="header">
                 <div class="logo">FindX</div>
-                <div class="job-alert-badge">💼 New Job Alert</div>
+                <div class="match-badge">🎯 Perfect Match Alert</div>
             </div>
             
-            <div class="job-title">${jobTitle}</div>
+            <div class="job-title">"${exactJobTitle}"</div>
             
-            <div class="match-info">
-                <p><strong>🎯 Perfect Match!</strong> This job matches your profile and preferences.</p>
-            </div>
+            <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">
+                This job perfectly matches your profile and preferences!
+            </p>
             
             <div class="job-details">
                 <div class="detail-row">
-                    <span class="detail-label">Company:</span>
+                    <span class="detail-label">🏢 Company:</span>
                     <span class="detail-value">${companyName}</span>
                 </div>
                 <div class="detail-row">
-                    <span class="detail-label">Location:</span>
+                    <span class="detail-label">📍 Location:</span>
                     <span class="detail-value">${jobLocation}</span>
                 </div>
                 <div class="detail-row">
-                    <span class="detail-label">Work Type:</span>
+                    <span class="detail-label">💼 Work Type:</span>
                     <span class="detail-value">${workType}</span>
                 </div>
                 <div class="detail-row">
-                    <span class="detail-label">Work Environment:</span>
+                    <span class="detail-label">🏠 Environment:</span>
                     <span class="detail-value">${workspaceOption}</span>
                 </div>
                 <div class="detail-row">
-                    <span class="detail-label">Salary Range:</span>
+                    <span class="detail-label">💰 Salary:</span>
                     <span class="detail-value">${salaryRange}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">🔧 Skills:</span>
+                    <span class="detail-value">${jobSkills}</span>
                 </div>
             </div>
             
@@ -283,7 +288,7 @@ You received this email because this job matches your profile and preferences.
     const textContent = `
 FindX 💼 - New Job Alert
 
-${jobTitle} at ${companyName}
+${exactJobTitle} at ${companyName}
 
 🎯 Perfect Match! This job matches your profile and preferences.
 
