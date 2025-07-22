@@ -102,6 +102,17 @@ const workHistorySchema = new mongoose.Schema({
     }
 }, {_id: true});
 
+const notInterestedJobCategoriesSchema = new mongoose.Schema({
+    jobCategory: {
+        type: String,
+        required: true
+    },
+    jobSubCategory: {
+        type: String,
+        required: true
+    }
+}, {_id: true});
+
 // Main User Schema
 const userSchema = new mongoose.Schema({
     name: {
