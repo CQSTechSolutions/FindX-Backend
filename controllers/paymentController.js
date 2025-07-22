@@ -76,106 +76,56 @@ const findSimilarUsers = async (jobData) => {
 
         console.log('📋 Job Criteria:', jobCriteria);
 
-        // Build query to find matching users
-        const matchQuery = {
-            // Users with completed profiles
-            isProfileCompleted: true
-        };
+        // Get ALL users with completed profiles (not just location matches)
+        let allUsers = await User.find({ isProfileCompleted: true })
+            .select('name email skills_and_capabilities dream_job_title preferred_job_types work_env_preferences resident_country relocation highest_qualification personal_branding_statement resume work_history education achievements licenses hobbies social_links emergency_contact')
+            .limit(500); // Increased limit to get more users for analysis
 
-        // Add location matching if job location is provided
-        if (jobCriteria.jobLocation) {
-            // Extract country from location (e.g., "Delhi, India" -> "India")
-            const locationParts = jobCriteria.jobLocation.split(',').map(part => part.trim());
-            const country = locationParts[locationParts.length - 1]; // Get the last part as country
-            
-            console.log('📍 Location matching details:', {
-                fullLocation: jobCriteria.jobLocation,
-                locationParts,
-                country,
-                city: locationParts[0]
-            });
-            
-            matchQuery.$or = [
-                // Match by country
-                { resident_country: { $regex: country, $options: 'i' } },
-                // Match by full location
-                { resident_country: { $regex: jobCriteria.jobLocation, $options: 'i' } },
-                // Match by preferred locations
-                { 'relocation.preferred_location': { $regex: country, $options: 'i' } },
-                { 'relocation.preferred_location': { $regex: jobCriteria.jobLocation, $options: 'i' } },
-                // Match by city (first part)
-                { resident_country: { $regex: locationParts[0], $options: 'i' } },
-                { 'relocation.preferred_location': { $regex: locationParts[0], $options: 'i' } }
-            ];
-        }
+        console.log(`📊 Found ${allUsers.length} users with completed profiles`);
 
-        // If no location matches found, make location optional and focus on other criteria
-        let matchingUsers = await User.find(matchQuery)
-            .select('name email skills_and_capabilities dream_job_title preferred_job_types work_env_preferences resident_country relocation highest_qualification personal_branding_statement')
-            .limit(100);
-
-        // If no users found with location criteria, try without location
-        if (matchingUsers.length === 0 && jobCriteria.jobLocation) {
-            console.log('🔍 No users found with location criteria, trying without location...');
-            const fallbackQuery = {
-                isProfileCompleted: true
+        // Function to analyze profile completeness
+        const analyzeProfileCompleteness = (user) => {
+            const missingFields = [];
+            const profileFields = {
+                'Skills & Capabilities': user.skills_and_capabilities?.length > 0,
+                'Dream Job Title': !!user.dream_job_title,
+                'Preferred Job Types': user.preferred_job_types?.length > 0,
+                'Work Environment Preferences': user.work_env_preferences?.length > 0,
+                'Resident Country': !!user.resident_country,
+                'Highest Qualification': !!user.highest_qualification,
+                'Personal Branding Statement': !!user.personal_branding_statement,
+                'Resume': !!user.resume,
+                'Work History': user.work_history?.length > 0,
+                'Education': user.education?.length > 0,
+                'Achievements': user.achievements?.length > 0,
+                'Licenses': user.licenses?.length > 0,
+                'Hobbies': user.hobbies?.length > 0,
+                'Social Links': !!(user.social_links?.linkedin || user.social_links?.github || user.social_links?.portfolio),
+                'Emergency Contact': !!(user.emergency_contact?.name && user.emergency_contact?.phone)
             };
 
-            // Add work type preferences if available
-            if (jobCriteria.workType) {
-                fallbackQuery.preferred_job_types = jobCriteria.workType;
-            }
-
-            // Add work environment preferences if available
-            if (jobCriteria.workspaceOption) {
-                const envMapping = {
-                    'On-site': 'Corporate',
-                    'Hybrid': 'Corporate',
-                    'Remote': 'Remote'
-                };
-                const mappedEnv = envMapping[jobCriteria.workspaceOption];
-                if (mappedEnv) {
-                    fallbackQuery.work_env_preferences = mappedEnv;
+            Object.entries(profileFields).forEach(([field, hasValue]) => {
+                if (!hasValue) {
+                    missingFields.push(field);
                 }
-            }
+            });
 
-            matchingUsers = await User.find(fallbackQuery)
-                .select('name email skills_and_capabilities dream_job_title preferred_job_types work_env_preferences resident_country relocation highest_qualification personal_branding_statement')
-                .limit(100);
-        }
+            const completedFields = Object.keys(profileFields).length - missingFields.length;
+            const completionPercentage = Math.round((completedFields / Object.keys(profileFields).length) * 100);
 
-        // If still no users found, try with just completed profiles
-        if (matchingUsers.length === 0) {
-            console.log('🔍 No users found with any criteria, trying with just completed profiles...');
-            matchingUsers = await User.find({ isProfileCompleted: true })
-                .select('name email skills_and_capabilities dream_job_title preferred_job_types work_env_preferences resident_country relocation highest_qualification personal_branding_statement')
-                .limit(100);
-        }
+            return {
+                missingFields,
+                completionPercentage,
+                totalFields: Object.keys(profileFields).length,
+                completedFields
+            };
+        };
 
-        // If still no users found, check if there are any users at all
-        if (matchingUsers.length === 0) {
-            console.log('🔍 No users with completed profiles found, checking total users in database...');
-            const totalUsers = await User.countDocuments();
-            const completedUsers = await User.countDocuments({ isProfileCompleted: true });
-            console.log(`📊 Database stats: ${totalUsers} total users, ${completedUsers} completed profiles`);
-        }
-
-
-
-        console.log(`👥 Found ${matchingUsers.length} potential matches`);
-        
-        if (matchingUsers.length === 0) {
-            console.log('⚠️  No users found. This could be due to:');
-            console.log('   - No users with completed profiles');
-            console.log('   - No users matching the location criteria');
-            console.log('   - No users matching the work type/environment preferences');
-            console.log('   - Database connection issues');
-        }
-
-        // Score and rank users based on multiple criteria
-        const scoredUsers = matchingUsers.map(user => {
+        // Score and rank ALL users based on multiple criteria
+        const scoredUsers = allUsers.map(user => {
             let score = 0;
             const matchDetails = [];
+            const profileAnalysis = analyzeProfileCompleteness(user);
 
             // 1. Skills matching (highest weight)
             if (user.skills_and_capabilities && jobCriteria.jobSkills.length > 0) {
@@ -211,34 +161,45 @@ const findSimilarUsers = async (jobData) => {
             }
 
             // 4. Work environment preference
-            if (user.work_env_preferences) {
-                const envMapping = {
-                    'On-site': 'Corporate',
-                    'Hybrid': 'Corporate',
-                    'Remote': 'Remote'
-                };
-                const mappedEnv = envMapping[jobCriteria.workspaceOption];
-                if (mappedEnv && user.work_env_preferences.includes(mappedEnv)) {
-                    score += 10;
-                    matchDetails.push('Work environment preference match');
-                }
+            if (user.work_env_preferences && user.work_env_preferences.includes(jobCriteria.workspaceOption)) {
+                score += 10;
+                matchDetails.push('Work environment preference match');
             }
 
             // 5. Location matching
-            if (user.resident_country && jobCriteria.jobLocation) {
-                const userCountry = user.resident_country.toLowerCase();
-                const jobLocation = jobCriteria.jobLocation.toLowerCase();
+            if (jobCriteria.jobLocation && user.resident_country) {
+                const locationParts = jobCriteria.jobLocation.split(',').map(part => part.trim());
+                const country = locationParts[locationParts.length - 1];
+                const city = locationParts[0];
                 
-                if (userCountry.includes(jobLocation) || jobLocation.includes(userCountry)) {
-                    score += 10;
+                if (user.resident_country.toLowerCase().includes(country.toLowerCase()) ||
+                    user.resident_country.toLowerCase().includes(city.toLowerCase()) ||
+                    user.resident_country.toLowerCase().includes(jobCriteria.jobLocation.toLowerCase())) {
+                    score += 20;
                     matchDetails.push('Location match');
+                } else if (user.relocation?.preferred_location) {
+                    const preferredLocations = Array.isArray(user.relocation.preferred_location) 
+                        ? user.relocation.preferred_location 
+                        : [user.relocation.preferred_location];
+                    
+                    const hasPreferredLocationMatch = preferredLocations.some(location =>
+                        location.toLowerCase().includes(country.toLowerCase()) ||
+                        location.toLowerCase().includes(city.toLowerCase()) ||
+                        location.toLowerCase().includes(jobCriteria.jobLocation.toLowerCase())
+                    );
+                    
+                    if (hasPreferredLocationMatch) {
+                        score += 15;
+                        matchDetails.push('Preferred location match');
+                    }
                 }
             }
 
-            // 6. Relocation willingness
-            if (user.relocation && user.relocation.willing_to_relocate) {
-                score += 5;
-                matchDetails.push('Willing to relocate');
+            // 6. Profile completeness bonus (up to 10 points)
+            const completenessBonus = Math.round(profileAnalysis.completionPercentage * 0.1);
+            score += completenessBonus;
+            if (completenessBonus > 0) {
+                matchDetails.push(`Profile completeness: ${profileAnalysis.completionPercentage}% (+${completenessBonus} points)`);
             }
 
             return {
@@ -255,7 +216,8 @@ const findSimilarUsers = async (jobData) => {
                     personal_branding_statement: user.personal_branding_statement
                 },
                 score: Math.round(score),
-                matchDetails
+                matchDetails,
+                profileAnalysis
             };
         });
 
@@ -265,18 +227,122 @@ const findSimilarUsers = async (jobData) => {
             .sort((a, b) => b.score - a.score)
             .slice(0, 100); // Top 100 matches
 
-        console.log(`🎯 Top ${topMatches.length} matches found:`);
-        topMatches.forEach((match, index) => {
-            console.log(`${index + 1}. ${match.user.name} (${match.user.email}) - Score: ${match.score}`);
-            console.log(`   Match Details: ${match.matchDetails.join(', ')}`);
+        // Enhanced console logging with detailed information
+        console.log('\n🎯 ===== PAYMENT JOB MATCHING ANALYSIS =====');
+        console.log(`📋 Job: ${jobCriteria.jobTitle}`);
+        console.log(`📍 Location: ${jobCriteria.jobLocation}`);
+        console.log(`💼 Work Type: ${jobCriteria.workType}`);
+        console.log(`🏢 Work Environment: ${jobCriteria.workspaceOption}`);
+        console.log(`🔧 Required Skills: ${jobCriteria.jobSkills.join(', ')}`);
+        console.log(`📊 Total Users Analyzed: ${allUsers.length}`);
+        console.log(`🎯 Users with Match Score > 0: ${topMatches.length}`);
+        console.log('');
+
+        // Show top matches with detailed information
+        console.log('🏆 TOP MATCHES:');
+        topMatches.slice(0, 20).forEach((match, index) => {
+            console.log(`\n${index + 1}. ${match.user.name} (${match.user.email})`);
+            console.log(`   📊 Match Score: ${match.score}/100`);
+            console.log(`   📈 Profile Completion: ${match.profileAnalysis.completionPercentage}%`);
+            console.log(`   🎯 Match Details: ${match.matchDetails.join(', ')}`);
+            
+            if (match.profileAnalysis.missingFields.length > 0) {
+                console.log(`   ❌ Missing Fields: ${match.profileAnalysis.missingFields.join(', ')}`);
+            } else {
+                console.log(`   ✅ Profile Complete`);
+            }
+            
+            console.log(`   📍 Location: ${match.user.resident_country || 'Not specified'}`);
+            console.log(`   💼 Dream Job: ${match.user.dream_job_title || 'Not specified'}`);
+            console.log(`   🔧 Skills: ${match.user.skills_and_capabilities?.slice(0, 5).join(', ') || 'None'}${match.user.skills_and_capabilities?.length > 5 ? '...' : ''}`);
         });
+
+        // Show users with low scores but complete profiles
+        const lowScoreCompleteProfiles = scoredUsers
+            .filter(user => user.score <= 10 && user.profileAnalysis.completionPercentage >= 80)
+            .sort((a, b) => b.profileAnalysis.completionPercentage - a.profileAnalysis.completionPercentage)
+            .slice(0, 10);
+
+        if (lowScoreCompleteProfiles.length > 0) {
+            console.log('\n📈 HIGH COMPLETION, LOW MATCH SCORE:');
+            lowScoreCompleteProfiles.forEach((user, index) => {
+                console.log(`${index + 1}. ${user.user.name} (${user.user.email})`);
+                console.log(`   📊 Match Score: ${user.score}/100`);
+                console.log(`   📈 Profile Completion: ${user.profileAnalysis.completionPercentage}%`);
+                console.log(`   ❌ Missing Fields: ${user.profileAnalysis.missingFields.join(', ')}`);
+            });
+        }
+
+        // Show profile completion statistics
+        const completionStats = {
+            '90-100%': 0,
+            '80-89%': 0,
+            '70-79%': 0,
+            '60-69%': 0,
+            '50-59%': 0,
+            '40-49%': 0,
+            '30-39%': 0,
+            '20-29%': 0,
+            '10-19%': 0,
+            '0-9%': 0
+        };
+
+        scoredUsers.forEach(user => {
+            const completion = user.profileAnalysis.completionPercentage;
+            if (completion >= 90) completionStats['90-100%']++;
+            else if (completion >= 80) completionStats['80-89%']++;
+            else if (completion >= 70) completionStats['70-79%']++;
+            else if (completion >= 60) completionStats['60-69%']++;
+            else if (completion >= 50) completionStats['50-59%']++;
+            else if (completion >= 40) completionStats['40-49%']++;
+            else if (completion >= 30) completionStats['30-39%']++;
+            else if (completion >= 20) completionStats['20-29%']++;
+            else if (completion >= 10) completionStats['10-19%']++;
+            else completionStats['0-9%']++;
+        });
+
+        console.log('\n📊 PROFILE COMPLETION STATISTICS:');
+        Object.entries(completionStats).forEach(([range, count]) => {
+            if (count > 0) {
+                const percentage = Math.round((count / allUsers.length) * 100);
+                console.log(`   ${range}: ${count} users (${percentage}%)`);
+            }
+        });
+
+        // Show most common missing fields
+        const missingFieldsCount = {};
+        scoredUsers.forEach(user => {
+            user.profileAnalysis.missingFields.forEach(field => {
+                missingFieldsCount[field] = (missingFieldsCount[field] || 0) + 1;
+            });
+        });
+
+        const sortedMissingFields = Object.entries(missingFieldsCount)
+            .sort(([,a], [,b]) => b - a)
+            .slice(0, 10);
+
+        if (sortedMissingFields.length > 0) {
+            console.log('\n❌ MOST COMMON MISSING FIELDS:');
+            sortedMissingFields.forEach(([field, count]) => {
+                const percentage = Math.round((count / allUsers.length) * 100);
+                console.log(`   ${field}: ${count} users (${percentage}%)`);
+            });
+        }
+
+        console.log('\n✅ ===== PAYMENT ANALYSIS COMPLETE =====\n');
 
         return {
             jobTitle: jobCriteria.jobTitle,
             jobLocation: jobCriteria.jobLocation,
-            totalCandidates: matchingUsers.length,
+            totalCandidates: allUsers.length,
             topMatches: topMatches.length,
-            matches: topMatches
+            matches: topMatches,
+            analysis: {
+                totalUsersAnalyzed: allUsers.length,
+                usersWithMatchScore: topMatches.length,
+                completionStats,
+                mostCommonMissingFields: sortedMissingFields
+            }
         };
 
     } catch (error) {

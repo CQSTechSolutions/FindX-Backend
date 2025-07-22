@@ -77,6 +77,9 @@ export const sendJobAlertEmails = async (jobData, matchedUsers) => {
     // Extract emails for BCC
     const userEmails = matchedUsers.map(user => user.email);
 
+    console.log('🔍 User emails:', userEmails);
+    console.log('🔍 Job data:', jobData);
+    
     // Prepare job alert email content
     const jobTitle = jobData.jobTitle;
     const companyName = jobData.companyName || jobData.postedBy?.companyName || 'Our Company';
