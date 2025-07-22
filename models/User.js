@@ -232,6 +232,10 @@ const userSchema = new mongoose.Schema({
         type: Date,
         select: false
     },
+    notInterestedJobCategories: {
+        type: [String],
+        default: []
+    }
 }, {timestamps: true});
 
 // Hash password before saving
