@@ -828,13 +828,61 @@ export const confirmPaymentSuccess = async (req, res) => {
                         currency: paymentRecord.jobData.currency || 'USD',
                         from: Number(paymentRecord.jobData.from) || 0,
                         to: Number(paymentRecord.jobData.to) || 0,
-                        // Ensure array fields are properly handled
-                        jobSkills: Array.isArray(paymentRecord.jobData.jobSkills) ? paymentRecord.jobData.jobSkills : [],
-                        jobKeywords: Array.isArray(paymentRecord.jobData.jobKeywords) ? paymentRecord.jobData.jobKeywords : [],
-                        sellingPoints: Array.isArray(paymentRecord.jobData.sellingPoints) ? paymentRecord.jobData.sellingPoints : [],
-                        shortDescription: Array.isArray(paymentRecord.jobData.shortDescription) ? paymentRecord.jobData.shortDescription : [],
-                        jobQuestions: Array.isArray(paymentRecord.jobData.jobQuestions) ? paymentRecord.jobData.jobQuestions : [],
-                        mandatoryQuestions: Array.isArray(paymentRecord.jobData.mandatoryQuestions) ? paymentRecord.jobData.mandatoryQuestions : [],
+                                            // Process array fields using the same logic as the job creation endpoint
+                    jobSkills: (() => {
+                        const data = paymentRecord.jobData.jobSkills;
+                        if (Array.isArray(data)) {
+                            return data.map(item => item.trim()).filter(item => item.length > 0);
+                        } else if (typeof data === 'string') {
+                            return data.split(',').map(item => item.trim()).filter(item => item.length > 0);
+                        }
+                        return [];
+                    })(),
+                    jobKeywords: (() => {
+                        const data = paymentRecord.jobData.jobKeywords;
+                        if (Array.isArray(data)) {
+                            return data.map(item => item.trim()).filter(item => item.length > 0);
+                        } else if (typeof data === 'string') {
+                            return data.split(',').map(item => item.trim()).filter(item => item.length > 0);
+                        }
+                        return [];
+                    })(),
+                    sellingPoints: (() => {
+                        const data = paymentRecord.jobData.sellingPoints;
+                        if (Array.isArray(data)) {
+                            return data.map(item => item.trim()).filter(item => item.length > 0);
+                        } else if (typeof data === 'string') {
+                            return data.split(',').map(item => item.trim()).filter(item => item.length > 0);
+                        }
+                        return [];
+                    })(),
+                    shortDescription: (() => {
+                        const data = paymentRecord.jobData.shortDescription;
+                        if (Array.isArray(data)) {
+                            return data.map(item => item.trim()).filter(item => item.length > 0);
+                        } else if (typeof data === 'string') {
+                            return data.split(',').map(item => item.trim()).filter(item => item.length > 0);
+                        }
+                        return [];
+                    })(),
+                    jobQuestions: (() => {
+                        const data = paymentRecord.jobData.jobQuestions;
+                        if (Array.isArray(data)) {
+                            return data.map(item => item.trim()).filter(item => item.length > 0);
+                        } else if (typeof data === 'string') {
+                            return data.split(',').map(item => item.trim()).filter(item => item.length > 0);
+                        }
+                        return [];
+                    })(),
+                    mandatoryQuestions: (() => {
+                        const data = paymentRecord.jobData.mandatoryQuestions;
+                        if (Array.isArray(data)) {
+                            return data.map(item => item.trim()).filter(item => item.length > 0);
+                        } else if (typeof data === 'string') {
+                            return data.split(',').map(item => item.trim()).filter(item => item.length > 0);
+                        }
+                        return [];
+                    })(),
                         selectedOptions: paymentRecord.jobData.selectedOptions || {},
                         // Premium features
                         premiumListing: Boolean(paymentRecord.jobData.premiumListing),
