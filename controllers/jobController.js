@@ -1537,6 +1537,8 @@ export const getJobRecommendations = async (req, res, next) => {
             !notInterestedSubCategories.has(job.subcategory)
         );
 
+        console.log(`Recommendations Debug - Total jobs: ${allJobs.length}, Available after filtering: ${availableJobs.length}, Applied: ${appliedJobIds.size}, Saved: ${savedJobIds.size}, Not interested categories: ${notInterestedSubCategories.size}`);
+
         // Calculate scores efficiently with enhanced algorithm
         const jobsWithScores = availableJobs.map(job => {
             const score = calculateEnhancedRecommendationScore(user, job);
@@ -1547,11 +1549,13 @@ export const getJobRecommendations = async (req, res, next) => {
             };
         });
 
-        // Get top 6 jobs with score > 15 (minimum threshold for relevance)
+        // Get top 8 jobs with score > 10 (lowered threshold for more results)
         const topRecommendations = jobsWithScores
-            .filter(item => item.score > 15)
+            .filter(item => item.score > 10)
             .sort((a, b) => b.score - a.score)
-            .slice(0, 6);
+            .slice(0, 8);
+
+        console.log(`Recommendations Debug - Jobs with scores > 10: ${jobsWithScores.filter(item => item.score > 10).length}, Top recommendations: ${topRecommendations.length}`);
 
         // If we have top recommendations, fetch full job details
         if (topRecommendations.length > 0) {
@@ -1582,7 +1586,7 @@ export const getJobRecommendations = async (req, res, next) => {
             // Fallback: get best available jobs even with lower scores
             const fallbackJobs = jobsWithScores
                 .sort((a, b) => b.score - a.score)
-                .slice(0, 3)
+                .slice(0, 8)
                 .map(item => ({
                     ...item.job,
                     recommendationScore: Math.round(item.score * 10) / 10,
