@@ -826,11 +826,24 @@ export const confirmPaymentSuccess = async (req, res) => {
                         workType: paymentRecord.jobData.workType || 'Full-time',
                         payType: paymentRecord.jobData.payType || 'Monthly salary',
                         currency: paymentRecord.jobData.currency || 'USD',
-                        from: paymentRecord.jobData.from || 0,
-                        to: paymentRecord.jobData.to || 0,
-                        // Ensure job skills are properly mapped
-                        jobSkills: paymentRecord.jobData.jobSkills || paymentRecord.jobData.skills || [],
-                        jobKeywords: paymentRecord.jobData.jobKeywords || paymentRecord.jobData.keywords || []
+                        from: Number(paymentRecord.jobData.from) || 0,
+                        to: Number(paymentRecord.jobData.to) || 0,
+                        // Ensure array fields are properly handled
+                        jobSkills: Array.isArray(paymentRecord.jobData.jobSkills) ? paymentRecord.jobData.jobSkills : [],
+                        jobKeywords: Array.isArray(paymentRecord.jobData.jobKeywords) ? paymentRecord.jobData.jobKeywords : [],
+                        sellingPoints: Array.isArray(paymentRecord.jobData.sellingPoints) ? paymentRecord.jobData.sellingPoints : [],
+                        shortDescription: Array.isArray(paymentRecord.jobData.shortDescription) ? paymentRecord.jobData.shortDescription : [],
+                        jobQuestions: Array.isArray(paymentRecord.jobData.jobQuestions) ? paymentRecord.jobData.jobQuestions : [],
+                        mandatoryQuestions: Array.isArray(paymentRecord.jobData.mandatoryQuestions) ? paymentRecord.jobData.mandatoryQuestions : [],
+                        selectedOptions: paymentRecord.jobData.selectedOptions || {},
+                        // Premium features
+                        premiumListing: Boolean(paymentRecord.jobData.premiumListing),
+                        immediateStart: Boolean(paymentRecord.jobData.immediateStart),
+                        referencesRequired: Boolean(paymentRecord.jobData.referencesRequired),
+                        notificationOption: paymentRecord.jobData.notificationOption || 'both',
+                        showShortDescription: Boolean(paymentRecord.jobData.showShortDescription),
+                        showSalaryOnAd: Boolean(paymentRecord.jobData.showSalaryOnAd !== false), // Default to true
+                        jobSalaryType: paymentRecord.jobData.jobSalaryType || 'Per Month'
                     };
 
                     // Debug: Log the processed job data
@@ -843,6 +856,12 @@ export const confirmPaymentSuccess = async (req, res) => {
                     // Special validation for numeric fields
                     if (typeof jobData.from !== 'number' || typeof jobData.to !== 'number') {
                         missingFields.push('from', 'to');
+                    }
+                    
+                    // Validate that 'to' is greater than 'from' for salary range
+                    if (jobData.from >= jobData.to) {
+                        console.error('Invalid salary range: from >= to');
+                        throw new Error('Invalid salary range: "to" amount must be greater than "from" amount');
                     }
                     
                     if (missingFields.length > 0) {

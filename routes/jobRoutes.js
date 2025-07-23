@@ -16,7 +16,12 @@ import {
     getUserApplicationResponse,
     fixEmptyQuestionResponses,
     getJobRecommendations,
-    sendPromotionNotifications
+    sendPromotionNotifications,
+    getJobCategories,
+    getJobSubcategories,
+    getJobStatistics,
+    getSavedJobs,
+    saveJob
 } from '../controllers/jobController.js';
 import { protect } from '../middleware/auth.js';
 import { protectEmployer } from '../middleware/employerAuth.js';
@@ -26,11 +31,16 @@ const router = express.Router();
 // Public routes
 router.get('/', getAllJobs);
 router.get('/latest', getLatestJobs);
+router.get('/categories', getJobCategories);
+router.get('/categories/:category/subcategories', getJobSubcategories);
+router.get('/statistics', getJobStatistics);
 
 // Protected user routes - specific routes must come before parameterized routes
 router.get('/recommendations', protect, getJobRecommendations);
 router.get('/my/applications', protect, getMyApplications);
+router.get('/saved', protect, getSavedJobs);
 router.put('/users/:userId/saved-jobs', protect, updateSavedJobs);
+router.put('/:jobId/save', protect, saveJob);
 
 // Parameterized routes - must come after specific routes
 router.get('/:id', getJob);

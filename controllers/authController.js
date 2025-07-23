@@ -410,10 +410,18 @@ export const updateSavedJobs = async (req, res, next) => {
   }
 };
 
-export const updateNotInterestedJobCategories = async (req, res) => {
+export const updateNotInterestedJobCategories = async (req, res, next) => {
   try {
     const { userId } = req.params;
-    const { jobSubCategory } = req.body; // JUST 'remove'
+    const { jobCategory, jobSubCategory } = req.body;
+
+    // Verify that the authenticated user matches the requested userId
+    if (req.user._id.toString() !== userId) {
+      return res.status(403).json({ 
+        success: false, 
+        message: "You're not authorized to update this user's not interested categories" 
+      });
+    }
 
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ 
@@ -421,15 +429,19 @@ export const updateNotInterestedJobCategories = async (req, res) => {
       message: "User not found" 
     });
 
-    if (user.notInterestedJobCategories.includes(jobSubCategory)) {
-      user.notInterestedJobCategories = user.notInterestedJobCategories.filter(category => category !== jobSubCategory);
-    } else {
-      user.notInterestedJobCategories.push(jobSubCategory);
+    const existingIndex = user.notInterestedJobCategories.findIndex(
+      item => item.jobCategory === jobCategory && item.jobSubCategory === jobSubCategory
+    );
+
+    if (existingIndex === -1) {
+      user.notInterestedJobCategories.push({
+        jobCategory,
+        jobSubCategory
+      });
     }
 
     await user.save();
     
-    // Get updated user data without sensitive fields
     const updatedUser = await User.findById(userId).select('-password -passwordResetOtp -passwordResetExpire');
     
     return res.status(201).json({ 

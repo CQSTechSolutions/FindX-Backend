@@ -27,13 +27,25 @@ const findSimilarUsers = async (jobData) => {
 
         // Get ALL users with skills (focus on skills rather than profile completion)
         let allUsers = await User.find({ 
-            skills_and_capabilities: { $exists: true, $ne: [], $not: { $size: 0 } },
-            // Exclude users who have marked this job category as not interested
-            notInterestedJobCategories: { $ne: jobData.subcategory }
+            skills_and_capabilities: { $exists: true, $ne: [], $not: { $size: 0 } }
         })
             .select('name email skills_and_capabilities dream_job_title preferred_job_types work_env_preferences resident_country relocation highest_qualification personal_branding_statement resume work_history education achievements licenses hobbies social_links emergency_contact isProfileCompleted notInterestedJobCategories');
 
         console.log(`📊 Found ${allUsers.length} users with skills (regardless of profile completion)`);
+
+        // Filter out users who have marked this job category as not interested
+        allUsers = allUsers.filter(user => {
+            if (!user.notInterestedJobCategories || user.notInterestedJobCategories.length === 0) {
+                return true; // User has no not interested categories
+            }
+            
+            // Check if user has marked this specific subcategory as not interested
+            return !user.notInterestedJobCategories.some(category => 
+                category.jobSubCategory === jobData.subcategory
+            );
+        });
+
+        console.log(`📊 After filtering not interested categories: ${allUsers.length} users`);
 
         // Function to analyze profile completeness
         const analyzeProfileCompleteness = (user) => {
@@ -574,25 +586,36 @@ export const createJob = async (req, res, next) => {
             }
         }
         
-        // Process short description fields
-        if (jobData.shortDescription) {
-            // Ensure shortDescription is an array
-            if (Array.isArray(jobData.shortDescription)) {
-                // Filter out empty strings and trim whitespace
-                jobData.shortDescription = jobData.shortDescription
-                    .map(point => point.trim())
-                    .filter(point => point.length > 0);
-            } else if (typeof jobData.shortDescription === 'string') {
-                // If it's a string, split by comma and process
-                jobData.shortDescription = jobData.shortDescription
-                    .split(',')
-                    .map(point => point.trim())
-                    .filter(point => point.length > 0);
+        // Process array fields to ensure they are properly formatted
+        const processArrayField = (fieldName, data) => {
+            if (data[fieldName]) {
+                if (Array.isArray(data[fieldName])) {
+                    // Filter out empty strings and trim whitespace
+                    data[fieldName] = data[fieldName]
+                        .map(item => item.trim())
+                        .filter(item => item.length > 0);
+                } else if (typeof data[fieldName] === 'string') {
+                    // If it's a string, split by comma and process
+                    data[fieldName] = data[fieldName]
+                        .split(',')
+                        .map(item => item.trim())
+                        .filter(item => item.length > 0);
+                } else {
+                    // If invalid format, set to empty array
+                    data[fieldName] = [];
+                }
             } else {
-                // If invalid format, set to empty array
-                jobData.shortDescription = [];
+                data[fieldName] = [];
             }
-        }
+        };
+
+        // Process all array fields
+        processArrayField('shortDescription', jobData);
+        processArrayField('jobSkills', jobData);
+        processArrayField('jobKeywords', jobData);
+        processArrayField('sellingPoints', jobData);
+        processArrayField('jobQuestions', jobData);
+        processArrayField('mandatoryQuestions', jobData);
         
         // Ensure showShortDescription is a boolean
         if (typeof jobData.showShortDescription !== 'boolean') {
@@ -742,25 +765,36 @@ export const updateJob = async (req, res, next) => {
             });
         }
 
-        // Process short description fields (same logic as createJob)
-        if (jobData.shortDescription) {
-            // Ensure shortDescription is an array
-            if (Array.isArray(jobData.shortDescription)) {
-                // Filter out empty strings and trim whitespace
-                jobData.shortDescription = jobData.shortDescription
-                    .map(point => point.trim())
-                    .filter(point => point.length > 0);
-            } else if (typeof jobData.shortDescription === 'string') {
-                // If it's a string, split by comma and process
-                jobData.shortDescription = jobData.shortDescription
-                    .split(',')
-                    .map(point => point.trim())
-                    .filter(point => point.length > 0);
+        // Process array fields to ensure they are properly formatted (same logic as createJob)
+        const processArrayField = (fieldName, data) => {
+            if (data[fieldName]) {
+                if (Array.isArray(data[fieldName])) {
+                    // Filter out empty strings and trim whitespace
+                    data[fieldName] = data[fieldName]
+                        .map(item => item.trim())
+                        .filter(item => item.length > 0);
+                } else if (typeof data[fieldName] === 'string') {
+                    // If it's a string, split by comma and process
+                    data[fieldName] = data[fieldName]
+                        .split(',')
+                        .map(item => item.trim())
+                        .filter(item => item.length > 0);
+                } else {
+                    // If invalid format, set to empty array
+                    data[fieldName] = [];
+                }
             } else {
-                // If invalid format, set to empty array
-                jobData.shortDescription = [];
+                data[fieldName] = [];
             }
-        }
+        };
+
+        // Process all array fields
+        processArrayField('shortDescription', jobData);
+        processArrayField('jobSkills', jobData);
+        processArrayField('jobKeywords', jobData);
+        processArrayField('sellingPoints', jobData);
+        processArrayField('jobQuestions', jobData);
+        processArrayField('mandatoryQuestions', jobData);
         
         // Ensure showShortDescription is a boolean
         if (typeof jobData.showShortDescription !== 'boolean') {
@@ -1490,12 +1524,17 @@ export const getJobRecommendations = async (req, res, next) => {
         const savedJobIds = new Set(user.savedJobs?.map(id => id.toString()) || []);
         
         // Filter out jobs from categories user is not interested in
-        const notInterestedCategories = new Set(user.notInterestedJobCategories || []);
+        const notInterestedSubCategories = new Set();
+        if (user.notInterestedJobCategories && user.notInterestedJobCategories.length > 0) {
+            user.notInterestedJobCategories.forEach(category => {
+                notInterestedSubCategories.add(category.jobSubCategory);
+            });
+        }
         
         const availableJobs = allJobs.filter(job => 
             !appliedJobIds.has(job._id.toString()) && 
             !savedJobIds.has(job._id.toString()) &&
-            !notInterestedCategories.has(job.subcategory)
+            !notInterestedSubCategories.has(job.subcategory)
         );
 
         // Calculate scores efficiently with enhanced algorithm
@@ -1869,19 +1908,31 @@ export const sendPromotionNotifications = async (req, res, next) => {
             // Exclude users who have already applied
             appliedJobs: { $ne: jobId },
             // Exclude users who have saved this job
-            savedJobs: { $ne: jobId },
-            // Exclude users who have marked this job category as not interested
-            notInterestedJobCategories: { $ne: job.subcategory }
+            savedJobs: { $ne: jobId }
         }).select('_id name email skills_and_capabilities dream_job_title work_history preferred_job_types work_env_preferences messagesFromEmployer resident_country relocation highest_qualification personal_branding_statement resume education achievements licenses hobbies social_links emergency_contact notInterestedJobCategories');
         
         console.log(`📊 Found ${potentialUsers.length} potential users for promotion`);
+        
+        // Filter out users who have marked this job category as not interested
+        const filteredUsers = potentialUsers.filter(user => {
+            if (!user.notInterestedJobCategories || user.notInterestedJobCategories.length === 0) {
+                return true; // User has no not interested categories
+            }
+            
+            // Check if user has marked this specific subcategory as not interested
+            return !user.notInterestedJobCategories.some(category => 
+                category.jobSubCategory === job.subcategory
+            );
+        });
+        
+        console.log(`📊 After filtering not interested categories: ${filteredUsers.length} users`);
         
         const companyName = job.postedBy.companyName || 'Company';
         const notifiedUsers = [];
         const userAnalysis = [];
         
         // Analyze each user and calculate match scores
-        for (const user of potentialUsers) {
+        for (const user of filteredUsers) {
             const profileAnalysis = analyzeProfileCompleteness(user);
             
             // Calculate enhanced match score
@@ -2090,6 +2141,270 @@ export const sendPromotionNotifications = async (req, res, next) => {
         
     } catch (error) {
         console.error('Error sending promotion notifications:', error);
+        next(error);
+    }
+};
+
+// Get job categories
+export const getJobCategories = async (req, res, next) => {
+    try {
+        // Define job categories (this could be moved to a separate config file)
+        const categories = [
+            'Accounting & Finance',
+            'Administration',
+            'Advertising & Media',
+            'Banking & Financial Services',
+            'Call Centre',
+            'Community Services',
+            'Construction',
+            'Consulting & Strategy',
+            'Customer Service',
+            'Design & Architecture',
+            'Education & Training',
+            'Engineering & Technical',
+            'Farming & Agriculture',
+            'Government',
+            'Healthcare',
+            'Hospitality & Tourism',
+            'Human Resources',
+            'Information Technology',
+            'Insurance & Superannuation',
+            'Legal Services',
+            'Manufacturing',
+            'Marketing & Communications',
+            'Mining & Resources',
+            'Real Estate',
+            'Retail',
+            'Sales & Marketing',
+            'Science & Research',
+            'Self Employment',
+            'Sport & Recreation',
+            'Transport & Logistics',
+            'Trades & Services'
+        ];
+        
+        res.status(200).json({
+            success: true,
+            categories
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Get job subcategories based on category
+export const getJobSubcategories = async (req, res, next) => {
+    try {
+        const { category } = req.params;
+        
+        if (!category) {
+            return res.status(400).json({
+                success: false,
+                message: 'Category is required'
+            });
+        }
+        
+        // Define subcategories for each category
+        const subcategoriesMap = {
+            'Accounting & Finance': [
+                'Accountant',
+                'Accounts Payable',
+                'Accounts Receivable',
+                'Bookkeeper',
+                'Financial Controller',
+                'Financial Analyst',
+                'Payroll Officer',
+                'Tax Accountant'
+            ],
+            'Administration': [
+                'Administrative Assistant',
+                'Office Manager',
+                'Receptionist',
+                'Personal Assistant',
+                'Data Entry',
+                'Executive Assistant'
+            ],
+            'Information Technology': [
+                'Software Developer',
+                'Web Developer',
+                'Data Scientist',
+                'DevOps Engineer',
+                'System Administrator',
+                'Network Engineer',
+                'UI/UX Designer',
+                'Product Manager',
+                'QA Engineer',
+                'Mobile Developer'
+            ],
+            'Sales & Marketing': [
+                'Sales Representative',
+                'Marketing Manager',
+                'Digital Marketing',
+                'Business Development',
+                'Account Manager',
+                'Sales Manager',
+                'Marketing Coordinator'
+            ],
+            'Healthcare': [
+                'Registered Nurse',
+                'General Practitioner',
+                'Physiotherapist',
+                'Pharmacist',
+                'Medical Receptionist',
+                'Healthcare Assistant'
+            ]
+        };
+        
+        const subcategories = subcategoriesMap[category] || [];
+        
+        res.status(200).json({
+            success: true,
+            subcategories
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Get job statistics
+export const getJobStatistics = async (req, res, next) => {
+    try {
+        // Get total jobs count
+        const totalJobs = await Job.countDocuments({ status: 'Open' });
+        
+        // Get jobs by category
+        const jobsByCategory = await Job.aggregate([
+            { $match: { status: 'Open' } },
+            { $group: { _id: '$category', count: { $sum: 1 } } },
+            { $sort: { count: -1 } }
+        ]);
+        
+        // Get jobs by work type
+        const jobsByWorkType = await Job.aggregate([
+            { $match: { status: 'Open' } },
+            { $group: { _id: '$workType', count: { $sum: 1 } } },
+            { $sort: { count: -1 } }
+        ]);
+        
+        // Get jobs by location (top locations)
+        const jobsByLocation = await Job.aggregate([
+            { $match: { status: 'Open' } },
+            { $group: { _id: '$jobLocation', count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+            { $limit: 10 }
+        ]);
+        
+        // Get recent jobs (last 7 days)
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        
+        const recentJobs = await Job.countDocuments({
+            status: 'Open',
+            createdAt: { $gte: sevenDaysAgo }
+        });
+        
+        res.status(200).json({
+            success: true,
+            statistics: {
+                totalJobs,
+                recentJobs,
+                jobsByCategory,
+                jobsByWorkType,
+                jobsByLocation
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Get saved jobs for a user
+export const getSavedJobs = async (req, res, next) => {
+    try {
+        const userId = req.user._id;
+        
+        // Find user and populate saved jobs
+        const user = await User.findById(userId).populate('savedJobs');
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        // Get saved jobs with full details
+        const savedJobs = user.savedJobs || [];
+        
+        res.status(200).json({
+            success: true,
+            jobs: savedJobs
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Save or unsave a job
+export const saveJob = async (req, res, next) => {
+    try {
+        const { jobId } = req.params;
+        const { action } = req.body; // 'save' or 'unsave'
+        const userId = req.user._id;
+        
+        if (!jobId || !action) {
+            return res.status(400).json({
+                success: false,
+                message: 'Job ID and action are required'
+            });
+        }
+        
+        // Verify job exists
+        const job = await Job.findById(jobId);
+        if (!job) {
+            return res.status(404).json({
+                success: false,
+                message: 'Job not found'
+            });
+        }
+        
+        // Find user
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        // Initialize savedJobs array if it doesn't exist
+        if (!user.savedJobs) {
+            user.savedJobs = [];
+        }
+        
+        if (action === 'save') {
+            // Add job to saved jobs if not already saved
+            if (!user.savedJobs.includes(jobId)) {
+                user.savedJobs.push(jobId);
+            }
+        } else if (action === 'unsave') {
+            // Remove job from saved jobs
+            user.savedJobs = user.savedJobs.filter(id => id.toString() !== jobId);
+        } else {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid action. Use "save" or "unsave"'
+            });
+        }
+        
+        await user.save();
+        
+        res.status(200).json({
+            success: true,
+            message: action === 'save' ? 'Job saved successfully' : 'Job removed from saved jobs',
+            savedJobs: user.savedJobs
+        });
+    } catch (error) {
         next(error);
     }
 }; 

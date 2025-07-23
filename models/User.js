@@ -244,7 +244,7 @@ const userSchema = new mongoose.Schema({
         select: false
     },
     notInterestedJobCategories: {
-        type: [String],
+        type: [notInterestedJobCategoriesSchema],
         default: []
     }
 }, {timestamps: true});
