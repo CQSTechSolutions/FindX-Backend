@@ -1007,6 +1007,25 @@ export const applyForJob = async (req, res, next) => {
             newApplicant: job.applicants[job.applicants.length - 1] // Show the newly added applicant
         });
 
+        // Update user's appliedJobs array
+        try {
+            const updatedUser = await User.findByIdAndUpdate(
+                req.user.id,
+                { $addToSet: { appliedJobs: job._id } },
+                { new: true }
+            );
+            
+            if (updatedUser) {
+                console.log('Successfully updated user appliedJobs array');
+            } else {
+                console.error('User not found when updating appliedJobs');
+            }
+        } catch (userUpdateError) {
+            console.error('Error updating user appliedJobs:', userUpdateError);
+            // Don't fail the entire application if user update fails
+            // But log it for debugging
+        }
+
         // Create application response record if there are questions
         if (job.applicationQuestions && job.applicationQuestions.length > 0) {
             try {
