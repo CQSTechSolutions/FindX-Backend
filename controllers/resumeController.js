@@ -590,3 +590,81 @@ export const updateResumeVisibilityById = async (req, res) => {
         });
     }
 };
+
+// Update cover letter for a specific resume
+export const updateCoverLetter = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { resumeId } = req.params;
+        const { coverLetter } = req.body;
+
+        if (!coverLetter || typeof coverLetter !== 'string') {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Cover letter content is required and must be a string' 
+            });
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        const resume = user.resumes.find(r => r._id.toString() === resumeId);
+        if (!resume) {
+            return res.status(404).json({ success: false, message: 'Resume not found' });
+        }
+
+        // Update the cover letter for the specific resume
+        const updatedUser = await User.findByIdAndUpdate(
+            userId,
+            { 
+                $set: { 
+                    'resumes.$[resume].coverLetter': coverLetter,
+                    'resumes.$[resume].coverLetterUpdatedAt': new Date()
+                } 
+            },
+            { 
+                arrayFilters: [{ 'resume._id': resumeId }], 
+                new: true, 
+                select: '-password -passwordResetOtp -passwordResetExpire' 
+            }
+        );
+
+        res.json({ 
+            success: true, 
+            message: 'Cover letter updated successfully', 
+            user: updatedUser 
+        });
+    } catch (error) {
+        console.error('Error updating cover letter:', error);
+        res.status(500).json({ success: false, message: 'Failed to update cover letter' });
+    }
+};
+
+// Get cover letter for a specific resume
+export const getCoverLetter = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { resumeId } = req.params;
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        const resume = user.resumes.find(r => r._id.toString() === resumeId);
+        if (!resume) {
+            return res.status(404).json({ success: false, message: 'Resume not found' });
+        }
+
+        res.json({ 
+            success: true, 
+            coverLetter: resume.coverLetter || '',
+            coverLetterUpdatedAt: resume.coverLetterUpdatedAt || null
+        });
+    } catch (error) {
+        console.error('Error getting cover letter:', error);
+        res.status(500).json({ success: false, message: 'Failed to get cover letter' });
+    }
+};

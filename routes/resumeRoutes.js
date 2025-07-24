@@ -9,7 +9,9 @@ import {
     getResumes,
     deleteResumeById,
     setPrimaryResume,
-    updateResumeVisibilityById
+    updateResumeVisibilityById,
+    updateCoverLetter,
+    getCoverLetter
 } from '../controllers/resumeController.js';
 import { protect } from '../middleware/auth.js';
 
@@ -53,6 +55,10 @@ router.get('/list', protect, getResumes);
 router.delete('/delete/:resumeId', protect, deleteResumeById);
 router.patch('/set-primary/:resumeId', protect, setPrimaryResume);
 router.patch('/visibility/:resumeId', protect, updateResumeVisibilityById);
+
+// Cover letter routes
+router.get('/cover-letter/:resumeId', protect, getCoverLetter);
+router.patch('/cover-letter/:resumeId', protect, updateCoverLetter);
 
 // Test route
 router.get('/test-cloudinary', protect, testCloudinary);

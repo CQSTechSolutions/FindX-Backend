@@ -233,6 +233,14 @@ const userSchema = new mongoose.Schema({
             isDownloadable: {
                 type: Boolean,
                 default: true
+            },
+            coverLetter: {
+                type: String,
+                default: ''
+            },
+            coverLetterUpdatedAt: {
+                type: Date,
+                default: Date.now
             }
         }],
         default: []
