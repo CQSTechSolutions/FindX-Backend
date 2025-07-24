@@ -1,6 +1,16 @@
 import express from 'express';
 import multer from 'multer';
-import { uploadResume, deleteResume, updateResumeVisibility, testCloudinary } from '../controllers/resumeController.js';
+import { 
+    uploadResume, 
+    uploadMultipleResume,
+    deleteResume, 
+    updateResumeVisibility, 
+    testCloudinary,
+    getResumes,
+    deleteResumeById,
+    setPrimaryResume,
+    updateResumeVisibilityById
+} from '../controllers/resumeController.js';
 import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -32,9 +42,19 @@ const upload = multer({
 });
 
 // Routes
+// Single resume routes (for backward compatibility)
 router.post('/upload', protect, upload.single('resume'), uploadResume);
 router.delete('/delete', protect, deleteResume);
 router.patch('/visibility', protect, updateResumeVisibility);
+
+// Multiple resumes routes
+router.post('/upload-multiple', protect, upload.single('resume'), uploadMultipleResume);
+router.get('/list', protect, getResumes);
+router.delete('/delete/:resumeId', protect, deleteResumeById);
+router.patch('/set-primary/:resumeId', protect, setPrimaryResume);
+router.patch('/visibility/:resumeId', protect, updateResumeVisibilityById);
+
+// Test route
 router.get('/test-cloudinary', protect, testCloudinary);
 
 export default router; 

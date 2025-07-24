@@ -193,10 +193,49 @@ const userSchema = new mongoose.Schema({
         type: [String],
         default: []
     },
+    // Single resume field (for backward compatibility)
     resume: String,
     resume_downloadble: {
         type: Boolean,
         default: true
+    },
+    // Multiple resumes support
+    resumes: {
+        type: [{
+            name: {
+                type: String,
+                required: true
+            },
+            url: {
+                type: String,
+                required: true
+            },
+            size: {
+                type: Number,
+                required: false
+            },
+            type: {
+                type: String,
+                required: false
+            },
+            extension: {
+                type: String,
+                required: false
+            },
+            uploadedAt: {
+                type: Date,
+                default: Date.now
+            },
+            isPrimary: {
+                type: Boolean,
+                default: false
+            },
+            isDownloadable: {
+                type: Boolean,
+                default: true
+            }
+        }],
+        default: []
     },
     cover_letter: String,
     work_history: {

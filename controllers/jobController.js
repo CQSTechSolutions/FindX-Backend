@@ -590,18 +590,18 @@ export const createJob = async (req, res, next) => {
         const processArrayField = (fieldName, data) => {
             if (data[fieldName]) {
                 if (Array.isArray(data[fieldName])) {
-                    // Filter out empty strings and trim whitespace
+                // Filter out empty strings and trim whitespace
                     data[fieldName] = data[fieldName]
                         .map(item => item.trim())
                         .filter(item => item.length > 0);
                 } else if (typeof data[fieldName] === 'string') {
-                    // If it's a string, split by comma and process
+                // If it's a string, split by comma and process
                     data[fieldName] = data[fieldName]
-                        .split(',')
+                    .split(',')
                         .map(item => item.trim())
                         .filter(item => item.length > 0);
-                } else {
-                    // If invalid format, set to empty array
+            } else {
+                // If invalid format, set to empty array
                     data[fieldName] = [];
                 }
             } else {
@@ -769,18 +769,18 @@ export const updateJob = async (req, res, next) => {
         const processArrayField = (fieldName, data) => {
             if (data[fieldName]) {
                 if (Array.isArray(data[fieldName])) {
-                    // Filter out empty strings and trim whitespace
+                // Filter out empty strings and trim whitespace
                     data[fieldName] = data[fieldName]
                         .map(item => item.trim())
                         .filter(item => item.length > 0);
                 } else if (typeof data[fieldName] === 'string') {
-                    // If it's a string, split by comma and process
+                // If it's a string, split by comma and process
                     data[fieldName] = data[fieldName]
-                        .split(',')
+                    .split(',')
                         .map(item => item.trim())
                         .filter(item => item.length > 0);
-                } else {
-                    // If invalid format, set to empty array
+            } else {
+                // If invalid format, set to empty array
                     data[fieldName] = [];
                 }
             } else {
