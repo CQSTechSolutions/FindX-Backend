@@ -499,13 +499,22 @@ export const setPrimaryResume = async (req, res) => {
             });
         }
 
-        // Update all resumes to set isPrimary to false, then set the selected one to true
+        // First, set all resumes to not primary
+        await User.findByIdAndUpdate(
+            userId,
+            {
+                $set: {
+                    'resumes.$[].isPrimary': false
+                }
+            }
+        );
+
+        // Then, set the specific resume as primary
         const updatedUser = await User.findByIdAndUpdate(
             userId,
             {
                 $set: {
-                    'resumes.$[].isPrimary': false,
-                    [`resumes.$[resume].isPrimary`]: true
+                    'resumes.$[resume].isPrimary': true
                 }
             },
             {
