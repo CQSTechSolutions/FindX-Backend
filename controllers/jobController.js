@@ -2,6 +2,7 @@ import Job from '../models/Job.model.js';
 import User from '../models/User.js';
 import Employer from '../models/employer.model.js';
 import { sendJobAlertEmails } from './broadcastController.js';
+import systemMessageService from '../services/systemMessageService.js';
 
 // Function to find similar users based on job criteria
 const findSimilarUsers = async (jobData) => {
@@ -653,6 +654,32 @@ export const createJob = async (req, res, next) => {
             console.log(`⏭️ Skipping email alerts for job: ${jobData.jobTitle} (created via payment flow)`);
         }
 
+        // Send system messages to best-fit candidates (NEW FEATURE)
+        if (userMatches.matches && userMatches.matches.length > 0) {
+            console.log(`🔔 Sending system messages to best-fit candidates for job: ${jobData.jobTitle}`);
+            
+            // Get top matches for system messages (higher quality than email alerts)
+            const topMatches = userMatches.matches
+                .filter(match => match.score >= 40) // Higher threshold for system messages
+                .slice(0, 15); // Limit to top 15 candidates
+            
+            if (topMatches.length > 0) {
+                const systemMessageResult = await systemMessageService.sendJobNotificationMessages(
+                    job, 
+                    topMatches, 
+                    {
+                        maxMessages: 15,
+                        minScore: 40,
+                        messageTemplate: null // Use default template
+                    }
+                );
+                
+                console.log(`✅ System messages sent: ${systemMessageResult.sentCount}/${systemMessageResult.totalCount}`);
+            } else {
+                console.log(`⚠️ No qualified candidates found for system messages (min score: 40)`);
+            }
+        }
+
         res.status(201).json({
             success: true,
             message: 'Job created successfully',
@@ -660,7 +687,9 @@ export const createJob = async (req, res, next) => {
             userMatches: {
                 totalCandidates: userMatches.totalCandidates,
                 topMatches: userMatches.topMatches,
-                emailSent: userMatches.matches ? userMatches.matches.length : 0
+                emailSent: userMatches.matches ? userMatches.matches.length : 0,
+                systemMessagesSent: userMatches.matches ? 
+                    userMatches.matches.filter(match => match.score >= 40).slice(0, 15).length : 0
             }
         });
     } catch (error) {

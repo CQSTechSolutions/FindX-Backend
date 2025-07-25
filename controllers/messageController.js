@@ -2,6 +2,7 @@ import Message from '../models/Message.model.js';
 import Job from '../models/Job.model.js';
 import User from '../models/User.js';
 import Employer from '../models/employer.model.js';
+import systemMessageService from '../services/systemMessageService.js';
 
 // Validate if user can message employer for a specific job
 export const validateMessagingPermission = async (req, res, next) => {
@@ -796,6 +797,231 @@ export const getUserUnreadMessageCount = async (req, res, next) => {
         res.status(500).json({
             success: false,
             message: 'Server error while getting unread message count'
+        });
+    }
+}; 
+
+// Get user's system messages (job notifications)
+export const getUserSystemMessages = async (req, res, next) => {
+    try {
+        const { userId } = req.params;
+        const { includeReplied = false, limit = 50, skip = 0 } = req.query;
+
+        // Validate user exists
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        const result = await systemMessageService.getUserSystemMessages(userId, {
+            includeReplied: includeReplied === 'true',
+            limit: parseInt(limit),
+            skip: parseInt(skip)
+        });
+
+        if (!result.success) {
+            return res.status(500).json({
+                success: false,
+                message: result.error
+            });
+        }
+
+        res.json({
+            success: true,
+            messages: result.messages,
+            count: result.count
+        });
+
+    } catch (error) {
+        console.error('Error getting user system messages:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error while getting system messages'
+        });
+    }
+};
+
+// Make a system message visible (when user first interacts)
+export const makeSystemMessageVisible = async (req, res, next) => {
+    try {
+        const { messageId } = req.params;
+        const { userId } = req.body;
+
+        if (!userId) {
+            return res.status(400).json({
+                success: false,
+                message: 'User ID is required'
+            });
+        }
+
+        const result = await systemMessageService.makeMessageVisible(messageId, userId);
+
+        if (!result.success) {
+            return res.status(400).json({
+                success: false,
+                message: result.error
+            });
+        }
+
+        res.json({
+            success: true,
+            message: result.message
+        });
+
+    } catch (error) {
+        console.error('Error making system message visible:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error while making message visible'
+        });
+    }
+};
+
+// Mark a system message as replied
+export const markSystemMessageAsReplied = async (req, res, next) => {
+    try {
+        const { messageId } = req.params;
+        const { userId } = req.body;
+
+        if (!userId) {
+            return res.status(400).json({
+                success: false,
+                message: 'User ID is required'
+            });
+        }
+
+        const result = await systemMessageService.markMessageAsReplied(messageId, userId);
+
+        if (!result.success) {
+            return res.status(400).json({
+                success: false,
+                message: result.error
+            });
+        }
+
+        res.json({
+            success: true,
+            message: result.message
+        });
+
+    } catch (error) {
+        console.error('Error marking system message as replied:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error while marking message as replied'
+        });
+    }
+};
+
+// Get system message statistics (admin only)
+export const getSystemMessageStats = async (req, res, next) => {
+    try {
+        const result = await systemMessageService.getSystemMessageStats();
+
+        if (!result.success) {
+            return res.status(500).json({
+                success: false,
+                message: result.error
+            });
+        }
+
+        res.json({
+            success: true,
+            stats: result.stats
+        });
+
+    } catch (error) {
+        console.error('Error getting system message stats:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error while getting system message stats'
+        });
+    }
+};
+
+// Reply to a system message (creates a new message thread)
+export const replyToSystemMessage = async (req, res, next) => {
+    try {
+        const { messageId } = req.params;
+        const { userId, content } = req.body;
+
+        if (!userId || !content) {
+            return res.status(400).json({
+                success: false,
+                message: 'User ID and content are required'
+            });
+        }
+
+        // Find the system message
+        const systemMessage = await Message.findOne({
+            _id: messageId,
+            to: userId,
+            fromModel: 'System',
+            isSystemMessage: true
+        });
+
+        if (!systemMessage) {
+            return res.status(404).json({
+                success: false,
+                message: 'System message not found'
+            });
+        }
+
+        // Get the job details
+        const job = await Job.findById(systemMessage.jobId).populate('postedBy', 'companyName email');
+        if (!job) {
+            return res.status(404).json({
+                success: false,
+                message: 'Job not found'
+            });
+        }
+
+        // Mark the system message as replied and make it visible
+        await systemMessage.markAsReplied();
+        await systemMessage.makeVisible();
+
+        // Create a new message from user to employer
+        const userReply = new Message({
+            from: userId,
+            to: job.postedBy._id,
+            fromModel: 'User',
+            toModel: 'Employer',
+            content: content,
+            jobId: systemMessage.jobId,
+            messageType: 'application_message'
+        });
+
+        await userReply.save();
+
+        // Populate the reply message
+        const populatedReply = await Message.findById(userReply._id)
+            .populate({
+                path: 'from',
+                refPath: 'fromModel',
+                select: 'name email'
+            })
+            .populate({
+                path: 'to',
+                refPath: 'toModel',
+                select: 'companyName email'
+            })
+            .populate('jobId', 'jobTitle');
+
+        res.status(201).json({
+            success: true,
+            message: 'Reply sent successfully',
+            data: populatedReply,
+            systemMessageUpdated: true
+        });
+
+    } catch (error) {
+        console.error('Error replying to system message:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error while replying to system message'
         });
     }
 }; 

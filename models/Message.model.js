@@ -14,7 +14,7 @@ const messageSchema = new mongoose.Schema({
     fromModel: {
         type: String,
         required: true,
-        enum: ['User', 'Employer']
+        enum: ['User', 'Employer', 'System']
     },
     toModel: {
         type: String,
@@ -37,8 +37,38 @@ const messageSchema = new mongoose.Schema({
     },
     messageType: {
         type: String,
-        enum: ['application_message', 'interview_invite', 'general'],
+        enum: ['application_message', 'interview_invite', 'general', 'job_notification', 'system_notification'],
         default: 'general'
+    },
+    // New fields for system messages and visibility control
+    isSystemMessage: {
+        type: Boolean,
+        default: false
+    },
+    isVisible: {
+        type: Boolean,
+        default: true
+    },
+    requiresReply: {
+        type: Boolean,
+        default: false
+    },
+    systemMessageData: {
+        jobTitle: String,
+        companyName: String,
+        matchScore: Number,
+        matchReasons: [String],
+        actionUrl: String
+    },
+    // Track when user first interacts with the message
+    firstInteractionAt: {
+        type: Date,
+        default: null
+    },
+    // Track if user has replied to this system message
+    hasReplied: {
+        type: Boolean,
+        default: false
     }
 }, { 
     timestamps: true,
@@ -49,6 +79,8 @@ const messageSchema = new mongoose.Schema({
 // Index for better query performance
 messageSchema.index({ from: 1, to: 1, jobId: 1 });
 messageSchema.index({ createdAt: -1 });
+messageSchema.index({ isSystemMessage: 1, isVisible: 1 });
+messageSchema.index({ to: 1, hasReplied: 1 });
 
 // Virtual to populate job details
 messageSchema.virtual('job', {
@@ -73,6 +105,20 @@ messageSchema.virtual('recipient', {
     foreignField: '_id',
     justOne: true
 });
+
+// Method to make system message visible when user replies
+messageSchema.methods.makeVisible = function() {
+    this.isVisible = true;
+    this.firstInteractionAt = new Date();
+    return this.save();
+};
+
+// Method to mark as replied
+messageSchema.methods.markAsReplied = function() {
+    this.hasReplied = true;
+    this.firstInteractionAt = this.firstInteractionAt || new Date();
+    return this.save();
+};
 
 const Message = mongoose.model('Message', messageSchema);
 
