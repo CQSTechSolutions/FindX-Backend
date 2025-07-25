@@ -642,7 +642,7 @@ export const createJobPostingPayment = async (req, res) => {
         // Create payment intent
         const paymentIntent = await stripe.paymentIntents.create({
             amount: amount,
-            currency: 'usd',
+            currency: 'aud',
             metadata: {
                 type: 'job_posting',
                 planId: planId,
@@ -712,7 +712,7 @@ export const createNotificationPayment = async (req, res) => {
         // Create payment intent
         const paymentIntent = await stripe.paymentIntents.create({
             amount: amount,
-            currency: 'usd',
+            currency: 'aud',
             metadata: {
                 type: 'notification_package',
                 packageId: packageId,
@@ -825,7 +825,7 @@ export const confirmPaymentSuccess = async (req, res) => {
                         subcategory: paymentRecord.jobData.subcategory || 'Other',
                         workType: paymentRecord.jobData.workType || 'Full-time',
                         payType: paymentRecord.jobData.payType || 'Monthly salary',
-                        currency: paymentRecord.jobData.currency || 'USD',
+                        currency: paymentRecord.jobData.currency || 'AUD',
                         from: Number(paymentRecord.jobData.from) || 0,
                         to: Number(paymentRecord.jobData.to) || 0,
                                             // Process array fields using the same logic as the job creation endpoint

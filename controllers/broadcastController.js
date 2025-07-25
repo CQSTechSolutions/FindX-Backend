@@ -87,7 +87,7 @@ export const sendJobAlertEmails = async (jobData, matchedUsers) => {
     const workType = jobData.workType || 'Work type not specified';
     const workspaceOption = jobData.workspaceOption || 'Work environment not specified';
     const salaryRange = jobData.from && jobData.to ? 
-      `${jobData.currency || '$'} ${jobData.from.toLocaleString()} - ${jobData.to.toLocaleString()}` : 
+      `${jobData.currency || 'AUD'} ${jobData.from.toLocaleString()} - ${jobData.to.toLocaleString()}` : 
       'Competitive salary';
 
     // Get job skills for email content
