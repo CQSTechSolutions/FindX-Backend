@@ -635,20 +635,38 @@ export const createJob = async (req, res, next) => {
             shortDescriptionLength: jobData.shortDescription?.length || 0
         });
         
+        // Ensure selectedOptions is properly formatted (it's an object, not an array)
+        if (!jobData.selectedOptions || typeof jobData.selectedOptions !== 'object') {
+            jobData.selectedOptions = {};
+        }
+        
         // Transform jobQuestions + selectedOptions + mandatoryQuestions to applicationQuestions
+        console.log('=== QUESTION TRANSFORMATION DEBUG ===');
+        console.log('Raw jobData before transformation:', {
+            jobQuestions: jobData.jobQuestions,
+            selectedOptions: jobData.selectedOptions,
+            mandatoryQuestions: jobData.mandatoryQuestions,
+            hasJobQuestions: !!(jobData.jobQuestions && jobData.jobQuestions.length > 0),
+            jobQuestionsLength: jobData.jobQuestions?.length || 0,
+            selectedOptionsKeys: jobData.selectedOptions ? Object.keys(jobData.selectedOptions) : [],
+            mandatoryQuestionsLength: jobData.mandatoryQuestions?.length || 0
+        });
+
         if (jobData.jobQuestions && jobData.jobQuestions.length > 0) {
             console.log('Transforming job questions to application questions format...');
-            console.log('Input data:', {
-                jobQuestions: jobData.jobQuestions,
-                selectedOptions: jobData.selectedOptions,
-                mandatoryQuestions: jobData.mandatoryQuestions
-            });
             
             jobData.applicationQuestions = jobData.jobQuestions.map(question => {
                 const options = jobData.selectedOptions && jobData.selectedOptions[question] 
                     ? jobData.selectedOptions[question] 
                     : [];
                 const required = jobData.mandatoryQuestions && jobData.mandatoryQuestions.includes(question);
+                
+                console.log(`Processing question: "${question}"`, {
+                    hasOptions: !!options.length,
+                    optionsCount: options.length,
+                    options: options,
+                    required: required
+                });
                 
                 return {
                     question: question,
@@ -670,6 +688,16 @@ export const createJob = async (req, res, next) => {
         // No need to set up pay range as currency, from, and to are now direct fields in the model
         
         const job = await Job.create(jobData);
+
+        // Verify the job was created with applicationQuestions
+        console.log('=== JOB CREATION VERIFICATION ===');
+        console.log('Created job details:', {
+            jobId: job._id,
+            jobTitle: job.jobTitle,
+            hasApplicationQuestions: !!(job.applicationQuestions && job.applicationQuestions.length > 0),
+            applicationQuestionsCount: job.applicationQuestions?.length || 0,
+            applicationQuestions: job.applicationQuestions
+        });
 
         // Find similar users after job creation
         console.log('🚀 Job created successfully, now finding similar users...');
