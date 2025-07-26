@@ -661,16 +661,24 @@ export const createJob = async (req, res, next) => {
                     : [];
                 const required = jobData.mandatoryQuestions && jobData.mandatoryQuestions.includes(question);
                 
+                // Ensure options is always an array and has at least one option
+                let finalOptions = options;
+                if (!finalOptions || finalOptions.length === 0) {
+                    // If no options provided, create default options
+                    finalOptions = ['Yes', 'No'];
+                    console.log(`No options provided for question "${question}", using default options:`, finalOptions);
+                }
+                
                 console.log(`Processing question: "${question}"`, {
-                    hasOptions: !!options.length,
-                    optionsCount: options.length,
-                    options: options,
+                    hasOptions: !!finalOptions.length,
+                    optionsCount: finalOptions.length,
+                    options: finalOptions,
                     required: required
                 });
                 
                 return {
                     question: question,
-                    options: options,
+                    options: finalOptions,
                     required: required
                 };
             });
@@ -820,7 +828,11 @@ export const getJob = async (req, res, next) => {
                 user: applicant.user,
                 status: applicant.status,
                 appliedOn: applicant.appliedOn
-            })) || []
+            })) || [],
+            applicationQuestionsCount: job.applicationQuestions?.length || 0,
+            applicationQuestions: job.applicationQuestions,
+            jobQuestionsCount: job.jobQuestions?.length || 0,
+            jobQuestions: job.jobQuestions
         });
 
         res.json({
@@ -917,9 +929,17 @@ export const updateJob = async (req, res, next) => {
                     : [];
                 const required = jobData.mandatoryQuestions && jobData.mandatoryQuestions.includes(question);
                 
+                // Ensure options is always an array and has at least one option
+                let finalOptions = options;
+                if (!finalOptions || finalOptions.length === 0) {
+                    // If no options provided, create default options
+                    finalOptions = ['Yes', 'No'];
+                    console.log(`No options provided for question "${question}", using default options:`, finalOptions);
+                }
+                
                 return {
                     question: question,
-                    options: options,
+                    options: finalOptions,
                     required: required
                 };
             });

@@ -44,9 +44,17 @@ async function migrateExistingJobs() {
                             : [];
                         const required = job.mandatoryQuestions && job.mandatoryQuestions.includes(question);
                         
+                        // Ensure options is always an array and has at least one option
+                        let finalOptions = options;
+                        if (!finalOptions || finalOptions.length === 0) {
+                            // If no options provided, create default options
+                            finalOptions = ['Yes', 'No'];
+                            console.log(`No options provided for question "${question}", using default options:`, finalOptions);
+                        }
+                        
                         return {
                             question: question,
-                            options: options,
+                            options: finalOptions,
                             required: required
                         };
                     });
