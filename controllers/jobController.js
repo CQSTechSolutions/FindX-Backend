@@ -649,48 +649,55 @@ export const createJob = async (req, res, next) => {
             hasJobQuestions: !!(jobData.jobQuestions && jobData.jobQuestions.length > 0),
             jobQuestionsLength: jobData.jobQuestions?.length || 0,
             selectedOptionsKeys: jobData.selectedOptions ? Object.keys(jobData.selectedOptions) : [],
-            mandatoryQuestionsLength: jobData.mandatoryQuestions?.length || 0
+            mandatoryQuestionsLength: jobData.mandatoryQuestions?.length || 0,
+            hasApplicationQuestions: !!(jobData.applicationQuestions && jobData.applicationQuestions.length > 0),
+            applicationQuestionsLength: jobData.applicationQuestions?.length || 0
         });
 
-        if (jobData.jobQuestions && jobData.jobQuestions.length > 0) {
-            console.log('Transforming job questions to application questions format...');
-            
-            jobData.applicationQuestions = jobData.jobQuestions.map(question => {
-                const options = jobData.selectedOptions && jobData.selectedOptions[question] 
-                    ? jobData.selectedOptions[question] 
-                    : [];
-                const required = jobData.mandatoryQuestions && jobData.mandatoryQuestions.includes(question);
+        // Only transform if applicationQuestions are not already provided
+        if (!jobData.applicationQuestions || jobData.applicationQuestions.length === 0) {
+            if (jobData.jobQuestions && jobData.jobQuestions.length > 0) {
+                console.log('Transforming job questions to application questions format...');
                 
-                // Ensure options is always an array and has at least one option
-                let finalOptions = options;
-                if (!finalOptions || finalOptions.length === 0) {
-                    // If no options provided, create default options
-                    finalOptions = ['Yes', 'No'];
-                    console.log(`No options provided for question "${question}", using default options:`, finalOptions);
-                }
-                
-                console.log(`Processing question: "${question}"`, {
-                    hasOptions: !!finalOptions.length,
-                    optionsCount: finalOptions.length,
-                    options: finalOptions,
-                    required: required
+                jobData.applicationQuestions = jobData.jobQuestions.map(question => {
+                    const options = jobData.selectedOptions && jobData.selectedOptions[question] 
+                        ? jobData.selectedOptions[question] 
+                        : [];
+                    const required = jobData.mandatoryQuestions && jobData.mandatoryQuestions.includes(question);
+                    
+                    // Ensure options is always an array and has at least one option
+                    let finalOptions = options;
+                    if (!finalOptions || finalOptions.length === 0) {
+                        // If no options provided, create default options
+                        finalOptions = ['Yes', 'No'];
+                        console.log(`No options provided for question "${question}", using default options:`, finalOptions);
+                    }
+                    
+                    console.log(`Processing question: "${question}"`, {
+                        hasOptions: !!finalOptions.length,
+                        optionsCount: finalOptions.length,
+                        options: finalOptions,
+                        required: required
+                    });
+                    
+                    return {
+                        question: question,
+                        options: finalOptions,
+                        required: required
+                    };
                 });
                 
-                return {
-                    question: question,
-                    options: finalOptions,
-                    required: required
-                };
-            });
-            
-            console.log('Transformed application questions:', {
-                count: jobData.applicationQuestions.length,
-                questions: jobData.applicationQuestions
-            });
+                console.log('Transformed application questions:', {
+                    count: jobData.applicationQuestions.length,
+                    questions: jobData.applicationQuestions
+                });
+            } else {
+                // Ensure applicationQuestions is an empty array if no questions
+                jobData.applicationQuestions = [];
+                console.log('No job questions provided, setting applicationQuestions to empty array');
+            }
         } else {
-            // Ensure applicationQuestions is an empty array if no questions
-            jobData.applicationQuestions = [];
-            console.log('No job questions provided, setting applicationQuestions to empty array');
+            console.log('ApplicationQuestions already provided, skipping transformation');
         }
         
         // No need to set up pay range as currency, from, and to are now direct fields in the model
@@ -915,43 +922,51 @@ export const updateJob = async (req, res, next) => {
         });
 
         // Transform jobQuestions + selectedOptions + mandatoryQuestions to applicationQuestions
-        if (jobData.jobQuestions && jobData.jobQuestions.length > 0) {
-            console.log('Transforming job questions to application questions format (update)...');
-            console.log('Input data:', {
-                jobQuestions: jobData.jobQuestions,
-                selectedOptions: jobData.selectedOptions,
-                mandatoryQuestions: jobData.mandatoryQuestions
-            });
-            
-            jobData.applicationQuestions = jobData.jobQuestions.map(question => {
-                const options = jobData.selectedOptions && jobData.selectedOptions[question] 
-                    ? jobData.selectedOptions[question] 
-                    : [];
-                const required = jobData.mandatoryQuestions && jobData.mandatoryQuestions.includes(question);
+        console.log('Input data for update:', {
+            jobQuestions: jobData.jobQuestions,
+            selectedOptions: jobData.selectedOptions,
+            mandatoryQuestions: jobData.mandatoryQuestions,
+            hasApplicationQuestions: !!(jobData.applicationQuestions && jobData.applicationQuestions.length > 0),
+            applicationQuestionsLength: jobData.applicationQuestions?.length || 0
+        });
+        
+        // Only transform if applicationQuestions are not already provided
+        if (!jobData.applicationQuestions || jobData.applicationQuestions.length === 0) {
+            if (jobData.jobQuestions && jobData.jobQuestions.length > 0) {
+                console.log('Transforming job questions to application questions format (update)...');
                 
-                // Ensure options is always an array and has at least one option
-                let finalOptions = options;
-                if (!finalOptions || finalOptions.length === 0) {
-                    // If no options provided, create default options
-                    finalOptions = ['Yes', 'No'];
-                    console.log(`No options provided for question "${question}", using default options:`, finalOptions);
-                }
+                jobData.applicationQuestions = jobData.jobQuestions.map(question => {
+                    const options = jobData.selectedOptions && jobData.selectedOptions[question] 
+                        ? jobData.selectedOptions[question] 
+                        : [];
+                    const required = jobData.mandatoryQuestions && jobData.mandatoryQuestions.includes(question);
+                    
+                    // Ensure options is always an array and has at least one option
+                    let finalOptions = options;
+                    if (!finalOptions || finalOptions.length === 0) {
+                        // If no options provided, create default options
+                        finalOptions = ['Yes', 'No'];
+                        console.log(`No options provided for question "${question}", using default options:`, finalOptions);
+                    }
+                    
+                    return {
+                        question: question,
+                        options: finalOptions,
+                        required: required
+                    };
+                });
                 
-                return {
-                    question: question,
-                    options: finalOptions,
-                    required: required
-                };
-            });
-            
-            console.log('Transformed application questions (update):', {
-                count: jobData.applicationQuestions.length,
-                questions: jobData.applicationQuestions
-            });
+                console.log('Transformed application questions (update):', {
+                    count: jobData.applicationQuestions.length,
+                    questions: jobData.applicationQuestions
+                });
+            } else {
+                // Ensure applicationQuestions is an empty array if no questions
+                jobData.applicationQuestions = [];
+                console.log('No job questions provided for update, setting applicationQuestions to empty array');
+            }
         } else {
-            // Ensure applicationQuestions is an empty array if no questions
-            jobData.applicationQuestions = [];
-            console.log('No job questions provided for update, setting applicationQuestions to empty array');
+            console.log('ApplicationQuestions already provided for update, skipping transformation');
         }
 
         job = await Job.findByIdAndUpdate(
