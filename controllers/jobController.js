@@ -593,7 +593,7 @@ export const createJob = async (req, res, next) => {
                 if (Array.isArray(data[fieldName])) {
                 // Filter out empty strings and trim whitespace
                     data[fieldName] = data[fieldName]
-                        .map(item => item.trim())
+                        .map(item => typeof item === 'string' ? item.trim() : String(item))
                         .filter(item => item.length > 0);
                 } else if (typeof data[fieldName] === 'string') {
                 // If it's a string, split by comma and process
@@ -800,7 +800,7 @@ export const updateJob = async (req, res, next) => {
                 if (Array.isArray(data[fieldName])) {
                 // Filter out empty strings and trim whitespace
                     data[fieldName] = data[fieldName]
-                        .map(item => item.trim())
+                        .map(item => typeof item === 'string' ? item.trim() : String(item))
                         .filter(item => item.length > 0);
                 } else if (typeof data[fieldName] === 'string') {
                 // If it's a string, split by comma and process
@@ -893,11 +893,13 @@ export const deleteJob = async (req, res, next) => {
 export const applyForJob = async (req, res, next) => {
     try {
         const { questionResponses } = req.body;
+        console.log('=== JOB APPLICATION REQUEST ===');
         console.log('Job application request:', {
             jobId: req.params.id,
             userId: req.user.id,
             hasQuestionResponses: !!questionResponses,
-            questionResponsesLength: questionResponses?.length || 0
+            questionResponsesLength: questionResponses?.length || 0,
+            questionResponses: questionResponses
         });
         
         const job = await Job.findById(req.params.id);
@@ -908,6 +910,14 @@ export const applyForJob = async (req, res, next) => {
                 message: 'Job not found'
             });
         }
+
+        console.log('Job found:', {
+            jobId: job._id,
+            jobTitle: job.jobTitle,
+            hasApplicationQuestions: !!(job.applicationQuestions && job.applicationQuestions.length > 0),
+            applicationQuestionsCount: job.applicationQuestions?.length || 0,
+            applicationQuestions: job.applicationQuestions
+        });
 
         // Check if job is closed
         if (job.status === 'Closed') {
@@ -939,41 +949,51 @@ export const applyForJob = async (req, res, next) => {
 
             // If questionResponses is provided, validate it
             if (questionResponses && questionResponses.length > 0) {
-            if (questionResponses.length !== job.applicationQuestions.length) {
-                return res.status(400).json({
-                    success: false,
-                    message: `Expected ${job.applicationQuestions.length} responses, but received ${questionResponses.length}`
-                });
-            }
-
-            // Validate each response
-            for (let i = 0; i < job.applicationQuestions.length; i++) {
-                const question = job.applicationQuestions[i];
-                const response = questionResponses[i];
-
-                console.log(`Validating question ${i + 1}:`, {
-                    question: question.question,
-                    required: question.required,
-                    response: response,
-                    selectedOption: response?.selectedOption,
-                    availableOptions: question.options
-                });
-
-                // Only require answers for mandatory questions
-                if (question.required && (!response || !response.selectedOption || response.selectedOption.trim() === '')) {
+                // Only validate that we have responses for all questions if responses are provided
+                if (questionResponses.length !== job.applicationQuestions.length) {
                     return res.status(400).json({
                         success: false,
-                        message: `Please answer required question ${i + 1}: "${question.question}"`
+                        message: `Expected ${job.applicationQuestions.length} responses, but received ${questionResponses.length}`
                     });
                 }
 
-                // If response is provided, validate that selected option is one of the available options
-                if (response && response.selectedOption && response.selectedOption.trim() !== '' && !question.options.includes(response.selectedOption)) {
+                // Validate each response
+                for (let i = 0; i < job.applicationQuestions.length; i++) {
+                    const question = job.applicationQuestions[i];
+                    const response = questionResponses[i];
+
+                    console.log(`Validating question ${i + 1}:`, {
+                        question: question.question,
+                        required: question.required,
+                        response: response,
+                        selectedOption: response?.selectedOption,
+                        availableOptions: question.options
+                    });
+
+                    // Only require answers for mandatory questions
+                    if (question.required && (!response || !response.selectedOption || response.selectedOption.trim() === '')) {
+                        return res.status(400).json({
+                            success: false,
+                            message: `Please answer required question ${i + 1}: "${question.question}"`
+                        });
+                    }
+
+                    // If response is provided, validate that selected option is one of the available options
+                    if (response && response.selectedOption && response.selectedOption.trim() !== '' && !question.options.includes(response.selectedOption)) {
+                        return res.status(400).json({
+                            success: false,
+                            message: `Invalid option selected for question ${i + 1}. Selected: "${response.selectedOption}", Available: ${question.options.join(', ')}`
+                        });
+                    }
+                }
+            } else {
+                // If no questionResponses provided but job has questions, check if any are required
+                const requiredQuestions = job.applicationQuestions.filter(q => q.required);
+                if (requiredQuestions.length > 0) {
                     return res.status(400).json({
                         success: false,
-                        message: `Invalid option selected for question ${i + 1}. Selected: "${response.selectedOption}", Available: ${question.options.join(', ')}`
+                        message: `This job has ${requiredQuestions.length} required questions that must be answered before applying`
                     });
-                    }
                 }
             }
         }
@@ -985,18 +1005,19 @@ export const applyForJob = async (req, res, next) => {
         };
 
         // Add question responses if they exist
-        if (job.applicationQuestions && job.applicationQuestions.length > 0 && questionResponses && questionResponses.length > 0) {
-            // Include all responses, even empty ones, but only add non-empty ones to applicant data
-            const validResponses = questionResponses
-                .map((response, index) => ({
-                    question: job.applicationQuestions[index].question,
-                    selectedOption: response.selectedOption,
-                    options: job.applicationQuestions[index].options
-                }))
-                .filter(response => response.selectedOption && response.selectedOption.trim() !== '');
-            
-            if (validResponses.length > 0) {
-                applicantData.questionResponses = validResponses;
+        if (job.applicationQuestions && job.applicationQuestions.length > 0) {
+            if (questionResponses && questionResponses.length > 0) {
+                // Map all responses to match the job's questions structure
+                const mappedResponses = job.applicationQuestions.map((question, index) => {
+                    const response = questionResponses[index];
+                    return {
+                        question: question.question,
+                        selectedOption: response?.selectedOption || '',
+                        options: question.options
+                    };
+                });
+                
+                applicantData.questionResponses = mappedResponses;
                 
                 console.log('Adding question responses to applicant:', {
                     jobId: req.params.id,
@@ -1004,13 +1025,23 @@ export const applyForJob = async (req, res, next) => {
                     questionResponsesCount: applicantData.questionResponses.length,
                     questionResponses: applicantData.questionResponses,
                     originalResponsesCount: questionResponses.length,
-                    filteredValidResponses: validResponses.length
+                    mappedResponses: mappedResponses.length
                 });
             } else {
-                console.log('No valid question responses found (all responses were empty):', {
+                // If no responses provided but job has questions, create empty responses
+                const emptyResponses = job.applicationQuestions.map(question => ({
+                    question: question.question,
+                    selectedOption: '',
+                    options: question.options
+                }));
+                
+                applicantData.questionResponses = emptyResponses;
+                
+                console.log('Adding empty question responses to applicant:', {
                     jobId: req.params.id,
                     userId: req.user.id,
-                    originalResponses: questionResponses
+                    questionResponsesCount: applicantData.questionResponses.length,
+                    questionResponses: applicantData.questionResponses
                 });
             }
         } else {
@@ -1060,7 +1091,7 @@ export const applyForJob = async (req, res, next) => {
             try {
                 const ApplicationResponse = (await import('../models/application_response.model.js')).default;
                 
-                // Map all questions, including empty responses
+                // Map all questions with their responses
                 const mappedResponses = job.applicationQuestions.map((question, index) => {
                     const response = questionResponses ? questionResponses[index] : null;
                     return {
@@ -1079,7 +1110,12 @@ export const applyForJob = async (req, res, next) => {
                 });
 
                 await applicationResponse.save();
-                console.log('Application response saved successfully');
+                console.log('Application response saved successfully:', {
+                    jobId: job._id,
+                    userId: req.user.id,
+                    responsesCount: mappedResponses.length,
+                    responses: mappedResponses
+                });
             } catch (responseError) {
                 console.error('Error saving application response:', responseError);
                 
@@ -1099,22 +1135,22 @@ export const applyForJob = async (req, res, next) => {
             success: true,
             message: 'Application submitted successfully'
         });
+
+        console.log('=== APPLICATION SUBMITTED SUCCESSFULLY ===');
+        console.log('Final applicant data saved:', {
+            jobId: job._id,
+            userId: req.user.id,
+            applicantData: applicantData,
+            totalApplicants: job.applicants.length,
+            newApplicant: job.applicants[job.applicants.length - 1]
+        });
     } catch (error) {
         console.error('Error in applyForJob:', {
             jobId: req.params.id,
-            userId: req.user?.id,
+            userId: req.user.id,
             error: error.message,
             stack: error.stack
         });
-        
-        // Handle specific validation errors
-        if (error.name === 'ValidationError') {
-            return res.status(400).json({
-                success: false,
-                message: 'Validation error: ' + error.message
-            });
-        }
-        
         next(error);
     }
 };
