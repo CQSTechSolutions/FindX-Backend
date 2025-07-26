@@ -635,6 +635,38 @@ export const createJob = async (req, res, next) => {
             shortDescriptionLength: jobData.shortDescription?.length || 0
         });
         
+        // Transform jobQuestions + selectedOptions + mandatoryQuestions to applicationQuestions
+        if (jobData.jobQuestions && jobData.jobQuestions.length > 0) {
+            console.log('Transforming job questions to application questions format...');
+            console.log('Input data:', {
+                jobQuestions: jobData.jobQuestions,
+                selectedOptions: jobData.selectedOptions,
+                mandatoryQuestions: jobData.mandatoryQuestions
+            });
+            
+            jobData.applicationQuestions = jobData.jobQuestions.map(question => {
+                const options = jobData.selectedOptions && jobData.selectedOptions[question] 
+                    ? jobData.selectedOptions[question] 
+                    : [];
+                const required = jobData.mandatoryQuestions && jobData.mandatoryQuestions.includes(question);
+                
+                return {
+                    question: question,
+                    options: options,
+                    required: required
+                };
+            });
+            
+            console.log('Transformed application questions:', {
+                count: jobData.applicationQuestions.length,
+                questions: jobData.applicationQuestions
+            });
+        } else {
+            // Ensure applicationQuestions is an empty array if no questions
+            jobData.applicationQuestions = [];
+            console.log('No job questions provided, setting applicationQuestions to empty array');
+        }
+        
         // No need to set up pay range as currency, from, and to are now direct fields in the model
         
         const job = await Job.create(jobData);
@@ -841,6 +873,38 @@ export const updateJob = async (req, res, next) => {
             shortDescription: jobData.shortDescription,
             shortDescriptionLength: jobData.shortDescription?.length || 0
         });
+
+        // Transform jobQuestions + selectedOptions + mandatoryQuestions to applicationQuestions
+        if (jobData.jobQuestions && jobData.jobQuestions.length > 0) {
+            console.log('Transforming job questions to application questions format (update)...');
+            console.log('Input data:', {
+                jobQuestions: jobData.jobQuestions,
+                selectedOptions: jobData.selectedOptions,
+                mandatoryQuestions: jobData.mandatoryQuestions
+            });
+            
+            jobData.applicationQuestions = jobData.jobQuestions.map(question => {
+                const options = jobData.selectedOptions && jobData.selectedOptions[question] 
+                    ? jobData.selectedOptions[question] 
+                    : [];
+                const required = jobData.mandatoryQuestions && jobData.mandatoryQuestions.includes(question);
+                
+                return {
+                    question: question,
+                    options: options,
+                    required: required
+                };
+            });
+            
+            console.log('Transformed application questions (update):', {
+                count: jobData.applicationQuestions.length,
+                questions: jobData.applicationQuestions
+            });
+        } else {
+            // Ensure applicationQuestions is an empty array if no questions
+            jobData.applicationQuestions = [];
+            console.log('No job questions provided for update, setting applicationQuestions to empty array');
+        }
 
         job = await Job.findByIdAndUpdate(
             req.params.id,
