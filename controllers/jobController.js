@@ -1019,14 +1019,18 @@ export const deleteJob = async (req, res, next) => {
 // Apply for a job
 export const applyForJob = async (req, res, next) => {
     try {
-        const { questionResponses } = req.body;
+        const { questionResponses, selectedResume, selectedCoverLetter } = req.body;
         console.log('=== JOB APPLICATION REQUEST ===');
         console.log('Job application request:', {
             jobId: req.params.id,
             userId: req.user.id,
             hasQuestionResponses: !!questionResponses,
             questionResponsesLength: questionResponses?.length || 0,
-            questionResponses: questionResponses
+            questionResponses: questionResponses,
+            hasSelectedResume: !!selectedResume,
+            hasSelectedCoverLetter: !!selectedCoverLetter,
+            selectedResume: selectedResume,
+            selectedCoverLetter: selectedCoverLetter
         });
         
         const job = await Job.findById(req.params.id);
@@ -1130,6 +1134,15 @@ export const applyForJob = async (req, res, next) => {
             user: req.user.id,
             status: 'Pending'
         };
+
+        // Add resume and cover letter information if provided
+        if (selectedResume) {
+            applicantData.selectedResume = selectedResume;
+        }
+        
+        if (selectedCoverLetter) {
+            applicantData.selectedCoverLetter = selectedCoverLetter;
+        }
 
         // Add question responses if they exist
         if (job.applicationQuestions && job.applicationQuestions.length > 0) {

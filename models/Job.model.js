@@ -26,6 +26,16 @@ const applicantSchema = new mongoose.Schema({
         default: false
     },
     blockReason: String,
+    // Resume and Cover Letter information
+    selectedResume: {
+        resumeId: String,
+        resumeName: String,
+        resumeUrl: String
+    },
+    selectedCoverLetter: {
+        type: String,
+        default: ''
+    },
     questionResponses: [{
         question: String,
         selectedOption: String,
