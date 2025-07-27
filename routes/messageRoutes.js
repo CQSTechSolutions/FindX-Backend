@@ -13,12 +13,7 @@ import {
     getRecentMessages,
     getUserMessages,
     markMessageAsRead,
-    getUserUnreadMessageCount,
-    getUserSystemMessages,
-    makeSystemMessageVisible,
-    markSystemMessageAsReplied,
-    getSystemMessageStats,
-    replyToSystemMessage
+    getUserUnreadMessageCount
 } from '../controllers/messageController.js';
 import { protect } from '../middleware/auth.js';
 import { protectEmployer } from '../middleware/employerAuth.js';
@@ -38,13 +33,6 @@ router.post('/send', protect, sendMessage);
 router.put('/mark-read', protect, markMessagesAsRead);
 router.put('/mark-all-read/:userId', protect, markAllMessagesAsRead);
 router.delete('/message/:messageId', protect, deleteMessage);
-
-// System message routes (protected)
-router.get('/user/:userId/system-messages', protect, getUserSystemMessages);
-router.put('/system-message/:messageId/visible', protect, makeSystemMessageVisible);
-router.put('/system-message/:messageId/replied', protect, markSystemMessageAsReplied);
-router.post('/system-message/:messageId/reply', protect, replyToSystemMessage);
-router.get('/system-messages/stats', protect, getSystemMessageStats);
 
 // Employer routes (protected)
 router.get('/employer/:userId/:userType/conversations', protectEmployer, getEmployerConversations);

@@ -3,10 +3,7 @@ import mongoose from 'mongoose';
 const messageSchema = new mongoose.Schema({
     from: {
         type: mongoose.Schema.Types.ObjectId,
-        required: function() {
-            // Allow null for system messages
-            return !this.isSystemMessage;
-        },
+        required: true,
         refPath: 'fromModel'
     },
     to: {
@@ -17,7 +14,7 @@ const messageSchema = new mongoose.Schema({
     fromModel: {
         type: String,
         required: true,
-        enum: ['User', 'Employer', 'System']
+        enum: ['User', 'Employer']
     },
     toModel: {
         type: String,
@@ -32,46 +29,16 @@ const messageSchema = new mongoose.Schema({
     jobId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Job',
-        required: true // Making this required to ensure messages are always job-related
+        required: true
     },
-    read: {
+    isRead: {
         type: Boolean,
         default: false
     },
     messageType: {
         type: String,
-        enum: ['application_message', 'interview_invite', 'general', 'job_notification', 'system_notification'],
+        enum: ['application_message', 'interview_invite', 'general'],
         default: 'general'
-    },
-    // New fields for system messages and visibility control
-    isSystemMessage: {
-        type: Boolean,
-        default: false
-    },
-    isVisible: {
-        type: Boolean,
-        default: true
-    },
-    requiresReply: {
-        type: Boolean,
-        default: false
-    },
-    systemMessageData: {
-        jobTitle: String,
-        companyName: String,
-        matchScore: Number,
-        matchReasons: [String],
-        actionUrl: String
-    },
-    // Track when user first interacts with the message
-    firstInteractionAt: {
-        type: Date,
-        default: null
-    },
-    // Track if user has replied to this system message
-    hasReplied: {
-        type: Boolean,
-        default: false
     }
 }, { 
     timestamps: true,
@@ -82,8 +49,7 @@ const messageSchema = new mongoose.Schema({
 // Index for better query performance
 messageSchema.index({ from: 1, to: 1, jobId: 1 });
 messageSchema.index({ createdAt: -1 });
-messageSchema.index({ isSystemMessage: 1, isVisible: 1 });
-messageSchema.index({ to: 1, hasReplied: 1 });
+messageSchema.index({ to: 1, isRead: 1 });
 
 // Virtual to populate job details
 messageSchema.virtual('job', {
@@ -108,20 +74,6 @@ messageSchema.virtual('recipient', {
     foreignField: '_id',
     justOne: true
 });
-
-// Method to make system message visible when user replies
-messageSchema.methods.makeVisible = function() {
-    this.isVisible = true;
-    this.firstInteractionAt = new Date();
-    return this.save();
-};
-
-// Method to mark as replied
-messageSchema.methods.markAsReplied = function() {
-    this.hasReplied = true;
-    this.firstInteractionAt = this.firstInteractionAt || new Date();
-    return this.save();
-};
 
 const Message = mongoose.model('Message', messageSchema);
 
