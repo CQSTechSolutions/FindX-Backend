@@ -178,7 +178,6 @@ Reply to this message to express your interest and we'll connect you with the em
         try {
             const query = {
                 to: userId,
-                fromModel: 'System',
                 isSystemMessage: true
             };
 
@@ -187,11 +186,15 @@ Reply to this message to express your interest and we'll connect you with the em
                 query.hasReplied = false;
             }
 
+            console.log('🔍 Debug: Query for system messages:', query);
+
             const messages = await Message.find(query)
                 .populate('jobId', 'jobTitle companyName jobLocation workType')
                 .sort({ createdAt: -1 })
                 .limit(limit)
                 .skip(skip);
+
+            console.log('🔍 Debug: Found messages:', messages.length);
 
             return {
                 success: true,
@@ -216,7 +219,6 @@ Reply to this message to express your interest and we'll connect you with the em
             const message = await Message.findOne({
                 _id: messageId,
                 to: userId,
-                fromModel: 'System',
                 isSystemMessage: true
             });
 
@@ -251,7 +253,6 @@ Reply to this message to express your interest and we'll connect you with the em
             const message = await Message.findOne({
                 _id: messageId,
                 to: userId,
-                fromModel: 'System',
                 isSystemMessage: true
             });
 
