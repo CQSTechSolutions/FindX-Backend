@@ -3,7 +3,10 @@ import mongoose from 'mongoose';
 const messageSchema = new mongoose.Schema({
     from: {
         type: mongoose.Schema.Types.ObjectId,
-        required: true,
+        required: function() {
+            // Allow null for system messages
+            return !this.isSystemMessage;
+        },
         refPath: 'fromModel'
     },
     to: {
