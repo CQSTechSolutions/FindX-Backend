@@ -1027,6 +1027,13 @@ export const applyForJob = async (req, res, next) => {
             hasQuestionResponses: !!questionResponses,
             questionResponsesLength: questionResponses?.length || 0,
             questionResponses: questionResponses,
+            questionResponsesDetails: questionResponses?.map((r, i) => ({
+                index: i,
+                question: r.question,
+                selectedOption: r.selectedOption,
+                hasSelectedOption: !!r.selectedOption,
+                selectedOptionLength: r.selectedOption?.length || 0
+            })),
             hasSelectedResume: !!selectedResume,
             hasSelectedCoverLetter: !!selectedCoverLetter,
             selectedResume: selectedResume,
