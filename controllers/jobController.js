@@ -4,9 +4,10 @@ import Employer from '../models/employer.model.js';
 import { sendJobAlertEmails } from './broadcastController.js';
 
 // Function to find similar users based on job criteria
-const findSimilarUsers = async (jobData) => {
+const findSimilarUsers = async (jobData, maxUsers = 500) => {
     try {
         console.log('🔍 Finding similar users for job:', jobData.jobTitle);
+        console.log('📊 Max users to notify:', maxUsers);
         
         // Extract relevant job data for matching
         const jobCriteria = {
@@ -18,6 +19,8 @@ const findSimilarUsers = async (jobData) => {
             workspaceOption: jobData.workspaceOption,
             jobSkills: jobData.jobSkills || [],
             jobKeywords: jobData.jobKeywords || [],
+            jobDescription: jobData.jobDescription || '',
+            jobSummary: jobData.jobSummary || '',
             from: jobData.from,
             to: jobData.to,
             currency: jobData.currency
@@ -47,25 +50,23 @@ const findSimilarUsers = async (jobData) => {
 
         console.log(`📊 After filtering not interested categories: ${allUsers.length} users`);
 
-        // Function to analyze profile completeness
+        // Function to analyze profile completeness - Use 12 sections, require at least 8 completed
         const analyzeProfileCompleteness = (user) => {
             const missingFields = [];
+            // 12 editable sections (match frontend)
             const profileFields = {
-                'Skills & Capabilities': user.skills_and_capabilities?.length > 0,
-                'Dream Job Title': !!user.dream_job_title,
-                'Preferred Job Types': user.preferred_job_types?.length > 0,
-                'Work Environment Preferences': user.work_env_preferences?.length > 0,
-                'Resident Country': !!user.resident_country,
-                'Highest Qualification': !!user.highest_qualification,
-                'Personal Branding Statement': !!user.personal_branding_statement,
-                'Resume': !!user.resume,
-                'Work History': user.work_history?.length > 0,
-                'Education': user.education?.length > 0,
-                'Achievements': user.achievements?.length > 0,
-                'Licenses': user.licenses?.length > 0,
-                'Hobbies': user.hobbies?.length > 0,
-                'Social Links': !!(user.social_links?.linkedin || user.social_links?.github || user.social_links?.portfolio),
-                'Emergency Contact': !!(user.emergency_contact?.name && user.emergency_contact?.phone)
+                'Personal Summary': user.personal_branding_statement && user.personal_branding_statement.trim() !== '',
+                'Highest Qualification': user.highest_qualification && user.highest_qualification.trim() !== '',
+                'Pronouns': user.pronouns && user.pronouns.trim() !== '',
+                'Education': user.education && Array.isArray(user.education) && user.education.length > 0,
+                'License': user.licenses && Array.isArray(user.licenses) && user.licenses.length > 0,
+                'Skills': user.skills_and_capabilities && user.skills_and_capabilities.length > 0,
+                'Languages': user.known_language && Array.isArray(user.known_language) && user.known_language.length > 0,
+                'Resume': user.resumes && Array.isArray(user.resumes) && user.resumes.length > 0,
+                'Work Environment': user.work_env_preferences && user.work_env_preferences.length > 0,
+                'Hobbies & Interests': user.hobbies && user.hobbies.length > 0,
+                'Achievements': user.achievements && user.achievements.length > 0,
+                'Social Links': user.social_links && (user.social_links.linkedin || user.social_links.github || user.social_links.portfolio)
             };
 
             Object.entries(profileFields).forEach(([field, hasValue]) => {
@@ -81,7 +82,8 @@ const findSimilarUsers = async (jobData) => {
                 missingFields,
                 completionPercentage,
                 totalFields: Object.keys(profileFields).length,
-                completedFields
+                completedFields,
+                isEligible: completedFields >= 8
             };
         };
 
@@ -287,58 +289,181 @@ const findSimilarUsers = async (jobData) => {
             };
         };
 
-        // Score and rank ALL users based on multiple criteria
-        const scoredUsers = allUsers.map(user => {
+        // Enhanced skills-based matching function
+        const calculateSkillsMatch = (userSkills, jobSkills, jobKeywords, jobDescription, jobSummary) => {
+            if (!userSkills || userSkills.length === 0) return { score: 0, matches: [], details: [] };
+            
+            const userSkillsLower = userSkills.map(skill => skill.toLowerCase().trim());
+            const jobSkillsLower = jobSkills.map(skill => skill.toLowerCase().trim());
+            const jobKeywordsLower = jobKeywords.map(keyword => keyword.toLowerCase().trim());
+            
+            // Combine all job-related text for keyword matching
+            const jobText = [
+                ...jobSkills,
+                ...jobKeywords,
+                jobDescription,
+                jobSummary
+            ].join(' ').toLowerCase();
+            
+            const details = [];
+            const matches = [];
             let totalScore = 0;
-            const matchDetails = [];
-            const profileAnalysis = analyzeProfileCompleteness(user);
-
-            // 1. Enhanced Skills matching (highest weight - 40%)
-            let skillsScore = 0;
-            if (user.skills_and_capabilities && jobCriteria.jobSkills.length > 0) {
-                const userSkills = user.skills_and_capabilities.map(skill => skill.toLowerCase());
-                const jobSkills = jobCriteria.jobSkills.map(skill => skill.toLowerCase());
+            
+            // 1. Direct skills matching (highest weight - 60%)
+            let directMatches = 0;
+            if (jobSkills.length > 0) {
+                jobSkillsLower.forEach(jobSkill => {
+                    userSkillsLower.forEach(userSkill => {
+                        // Exact match
+                        if (userSkill === jobSkill) {
+                            directMatches++;
+                            matches.push({ type: 'exact', skill: jobSkill, score: 100 });
+                            details.push(`Exact match: "${jobSkill}"`);
+                        }
+                        // Contains match
+                        else if (userSkill.includes(jobSkill) || jobSkill.includes(userSkill)) {
+                            directMatches++;
+                            matches.push({ type: 'contains', skill: jobSkill, score: 80 });
+                            details.push(`Contains match: "${jobSkill}" in "${userSkill}"`);
+                        }
+                    });
+                });
                 
-                const matchingSkills = jobSkills.filter(skill => 
-                    userSkills.some(userSkill => 
-                        userSkill.includes(skill) || skill.includes(userSkill)
-                    )
-                );
+                const directMatchScore = (directMatches / jobSkills.length) * 100;
+                totalScore += directMatchScore * 0.6; // 60% weight
+            } else {
+                // If no job skills defined, give 0 score for direct matching
+                totalScore += 0 * 0.6;
+            }
+            
+            // 2. Enhanced keyword matching from job description/summary (40% weight when no job skills)
+            let keywordMatches = 0;
+            const matchedKeywords = [];
+            
+            userSkillsLower.forEach(userSkill => {
+                // Split user skill into words for better matching
+                const userSkillWords = userSkill.split(/\s+/);
                 
-                const skillMatchPercentage = (matchingSkills.length / jobSkills.length) * 100;
-                skillsScore = skillMatchPercentage;
-                matchDetails.push(`Skills: ${matchingSkills.length}/${jobSkills.length} (${skillMatchPercentage.toFixed(1)}%)`);
-            }
-            totalScore += skillsScore * 0.4; // 40% weight
-
-            // 2. Enhanced Job title matching (25% weight)
-            const jobTitleAnalysis = analyzeJobTitleMatch(user.dream_job_title, jobCriteria.jobTitle);
-            const jobTitleScore = jobTitleAnalysis.score;
-            totalScore += jobTitleScore * 0.25; // 25% weight
-            matchDetails.push(`Job Title: ${jobTitleAnalysis.matchType} (${jobTitleScore}%)`);
-
-            // 3. Enhanced Location matching (20% weight)
-            const locationAnalysis = analyzeLocationMatch(user.resident_country, jobCriteria.jobLocation, user);
-            const locationScore = locationAnalysis.score;
-            totalScore += locationScore * 0.2; // 20% weight
-            matchDetails.push(`Location: ${locationAnalysis.matchType} (${locationScore}%)`);
-
-            // 4. Work type preference (10% weight)
-            let workTypeScore = 0;
-            if (user.preferred_job_types && user.preferred_job_types.includes(jobCriteria.workType)) {
-                workTypeScore = 100;
-                matchDetails.push('Work type preference match');
-            }
-            totalScore += workTypeScore * 0.1; // 10% weight
-
-            // 5. Work environment preference (5% weight)
-            let workEnvScore = 0;
-            if (user.work_env_preferences && user.work_env_preferences.includes(jobCriteria.workspaceOption)) {
-                workEnvScore = 100;
-                    matchDetails.push('Work environment preference match');
+                userSkillWords.forEach(word => {
+                    if (word.length > 2) { // Only match words with 3+ characters
+                        // Check if word appears in job text
+                        if (jobText.includes(word)) {
+                            keywordMatches++;
+                            matchedKeywords.push(word);
+                            matches.push({ type: 'keyword', skill: word, score: 60 });
+                            details.push(`Keyword match: "${word}" found in job description`);
+                        }
+                        // Also check for partial matches (e.g., "meri" in "meriskill")
+                        else {
+                            const partialMatches = jobText.split(/\s+/).filter(jobWord => 
+                                jobWord.includes(word) || word.includes(jobWord)
+                            );
+                            if (partialMatches.length > 0) {
+                                keywordMatches++;
+                                matchedKeywords.push(word);
+                                matches.push({ type: 'partial_keyword', skill: word, score: 40 });
+                                details.push(`Partial keyword match: "${word}" similar to "${partialMatches.join(', ')}"`);
+                            }
+                        }
+                    }
+                });
+            });
+            
+            const keywordMatchScore = userSkills.length > 0 ? (keywordMatches / userSkills.length) * 100 : 0;
+            // Increase keyword weight when no job skills defined
+            const keywordWeight = jobSkills.length > 0 ? 0.3 : 0.4;
+            totalScore += keywordMatchScore * keywordWeight;
+            
+            // 3. Related skills matching (10% weight)
+            let relatedMatches = 0;
+            const relatedSkills = [];
+            
+            // Define related skill groups
+            const skillGroups = {
+                'programming': ['javascript', 'python', 'java', 'c++', 'c#', 'php', 'ruby', 'go', 'rust', 'swift', 'kotlin', 'typescript', 'react', 'angular', 'vue', 'node.js', 'express', 'django', 'flask', 'spring', 'laravel'],
+                'design': ['ui', 'ux', 'figma', 'sketch', 'adobe', 'photoshop', 'illustrator', 'invision', 'prototyping', 'wireframing', 'user research', 'design thinking'],
+                'data': ['sql', 'mysql', 'postgresql', 'mongodb', 'redis', 'elasticsearch', 'data analysis', 'machine learning', 'ai', 'statistics', 'excel', 'tableau', 'power bi'],
+                'devops': ['docker', 'kubernetes', 'aws', 'azure', 'gcp', 'ci/cd', 'jenkins', 'git', 'linux', 'nginx', 'apache', 'terraform', 'ansible'],
+                'marketing': ['seo', 'sem', 'social media', 'content marketing', 'email marketing', 'google ads', 'facebook ads', 'analytics', 'conversion optimization'],
+                'management': ['project management', 'agile', 'scrum', 'kanban', 'leadership', 'team management', 'stakeholder management', 'risk management']
+            };
+            
+            userSkillsLower.forEach(userSkill => {
+                Object.entries(skillGroups).forEach(([groupName, groupSkills]) => {
+                    if (groupSkills.some(skill => skill.includes(userSkill) || userSkill.includes(skill))) {
+                        // Check if any job skills are in the same group
+                        const jobSkillsInGroup = jobSkillsLower.filter(jobSkill => 
+                            groupSkills.some(skill => skill.includes(jobSkill) || jobSkill.includes(skill))
+                        );
+                        
+                        if (jobSkillsInGroup.length > 0) {
+                            relatedMatches++;
+                            relatedSkills.push({ userSkill, relatedSkills: jobSkillsInGroup, group: groupName });
+                            matches.push({ type: 'related', skill: userSkill, score: 40 });
+                            details.push(`Related skills: "${userSkill}" related to "${jobSkillsInGroup.join(', ')}" in ${groupName}`);
+                        }
+                    }
+                });
+            });
+            
+            const relatedMatchScore = userSkills.length > 0 ? (relatedMatches / userSkills.length) * 100 : 0;
+            totalScore += relatedMatchScore * 0.1; // 10% weight
+            
+            return {
+                score: Math.round(totalScore),
+                matches,
+                details,
+                breakdown: {
+                    directMatchScore: Math.round(jobSkills.length > 0 ? (directMatches / jobSkills.length) * 100 : 0),
+                    keywordMatchScore: Math.round(keywordMatchScore),
+                    relatedMatchScore: Math.round(relatedMatchScore),
+                    directMatches,
+                    keywordMatches,
+                    relatedMatches
                 }
-            totalScore += workEnvScore * 0.05; // 5% weight
+            };
+        };
 
+        // Score and rank users based on skills matching
+        const scoredUsers = allUsers.map(user => {
+            const profileAnalysis = analyzeProfileCompleteness(user);
+            
+            // Focus primarily on skills matching
+            const skillsMatch = calculateSkillsMatch(
+                user.skills_and_capabilities,
+                jobCriteria.jobSkills,
+                jobCriteria.jobKeywords,
+                jobCriteria.jobDescription,
+                jobCriteria.jobSummary
+            );
+            
+            // Only include users who have some skills match (score > 0)
+            if (skillsMatch.score === 0) {
+                return null; // Will be filtered out
+            }
+            
+            // Secondary factors for tie-breaking (much lower weight)
+            let secondaryScore = 0;
+            const secondaryDetails = [];
+            
+            // Job title matching (5% weight)
+            const jobTitleAnalysis = analyzeJobTitleMatch(user.dream_job_title, jobCriteria.jobTitle);
+            secondaryScore += jobTitleAnalysis.score * 0.05;
+            secondaryDetails.push(`Job Title: ${jobTitleAnalysis.matchType} (${jobTitleAnalysis.score}%)`);
+            
+            // Location matching (3% weight)
+            const locationAnalysis = analyzeLocationMatch(user.resident_country, jobCriteria.jobLocation, user);
+            secondaryScore += locationAnalysis.score * 0.03;
+            secondaryDetails.push(`Location: ${locationAnalysis.matchType} (${locationAnalysis.score}%)`);
+            
+            // Work type preference (2% weight)
+            if (user.preferred_job_types && user.preferred_job_types.includes(jobCriteria.workType)) {
+                secondaryScore += 100 * 0.02;
+                secondaryDetails.push('Work type preference match');
+            }
+            
+            const totalScore = skillsMatch.score + secondaryScore;
+            
             return {
                 user: {
                     _id: user._id,
@@ -353,63 +478,63 @@ const findSimilarUsers = async (jobData) => {
                     personal_branding_statement: user.personal_branding_statement
                 },
                 score: Math.round(totalScore),
-                matchDetails,
+                skillsScore: skillsMatch.score,
+                secondaryScore: Math.round(secondaryScore),
+                matchDetails: [...skillsMatch.details, ...secondaryDetails],
                 profileAnalysis,
+                skillsMatch,
                 detailedAnalysis: {
-                    skillsScore: Math.round(skillsScore),
-                    jobTitleScore: Math.round(jobTitleScore),
-                    locationScore: Math.round(locationScore),
-                    workTypeScore: Math.round(workTypeScore),
-                    workEnvScore: Math.round(workEnvScore),
-                    jobTitleAnalysis,
-                    locationAnalysis
+                    skillsScore: skillsMatch.score,
+                    jobTitleScore: Math.round(jobTitleAnalysis.score),
+                    locationScore: Math.round(locationAnalysis.score),
+                    skillsMatch: skillsMatch.breakdown
                 }
             };
         });
 
-        // Sort by score (highest first) and get ALL matches (no artificial limits)
-        // FIXED: Include ALL users with completed profiles, regardless of score
-        const topMatches = scoredUsers
-            .sort((a, b) => b.score - a.score); // ALL matches, no limit, no score filtering
+        // Filter out users with no meaningful skills match (skills score < 70)
+        const usersWithSkillsMatch = scoredUsers.filter(user => user.skillsScore >= 70 && user.profileAnalysis.isEligible);
+        
+        // Sort by score (highest first) and limit to maxUsers
+        const topMatches = usersWithSkillsMatch
+            .sort((a, b) => b.score - a.score)
+            .slice(0, maxUsers); // Limit to maxUsers parameter
 
         // Enhanced console logging with detailed information
-        console.log('\n🎯 ===== PERFECT JOB MATCHING ANALYSIS =====');
+        console.log('\n🎯 ===== ENHANCED SKILLS-BASED JOB MATCHING ANALYSIS =====');
         console.log(`📋 Job: ${jobCriteria.jobTitle}`);
         console.log(`📍 Location: ${jobCriteria.jobLocation}`);
         console.log(`💼 Work Type: ${jobCriteria.workType}`);
         console.log(`🏢 Work Environment: ${jobCriteria.workspaceOption}`);
         console.log(`🔧 Required Skills: ${jobCriteria.jobSkills.join(', ')}`);
+        console.log(`🔑 Keywords: ${jobCriteria.jobKeywords.join(', ')}`);
         console.log(`📊 Total Users Analyzed: ${allUsers.length}`);
-        console.log(`🎯 Users to Receive Emails: ${topMatches.length} (ALL users with completed profiles)`);
+        console.log(`🎯 Users with Skills Match: ${scoredUsers.length}`);
+        console.log(`✅ Users with Meaningful Skills Match (Score >= 70): ${usersWithSkillsMatch.length}`);
+        console.log(`📧 Users to Receive Emails: ${topMatches.length} (limited to ${maxUsers})`);
         console.log('');
 
         // Show top matches with detailed information
-        console.log('🏆 TOP PERFECT MATCHES:');
-        topMatches.slice(0, 20).forEach((match, index) => {
+        console.log('🏆 TOP SKILLS-BASED MATCHES:');
+        topMatches.slice(0, 10).forEach((match, index) => {
             console.log(`\n${index + 1}. ${match.user.name} (${match.user.email})`);
             console.log(`   📊 Total Match Score: ${match.score}/100`);
+            console.log(`   🔧 Skills Score: ${match.skillsScore}/100`);
             console.log(`   📈 Profile Completion: ${match.profileAnalysis.completionPercentage}%`);
             
-            // Detailed breakdown
-            console.log(`   🔧 Skills Score: ${match.detailedAnalysis.skillsScore}/100`);
-            console.log(`   💼 Job Title Score: ${match.detailedAnalysis.jobTitleScore}/100 (${match.detailedAnalysis.jobTitleAnalysis.matchType})`);
-            console.log(`   📍 Location Score: ${match.detailedAnalysis.locationScore}/100 (${match.detailedAnalysis.locationAnalysis.matchType})`);
-            console.log(`   ⚡ Work Type Score: ${match.detailedAnalysis.workTypeScore}/100`);
-            console.log(`   🏢 Work Environment Score: ${match.detailedAnalysis.workEnvScore}/100`);
+            // Skills match breakdown
+            const skillsBreakdown = match.skillsMatch.breakdown;
+            console.log(`   🎯 Skills Breakdown:`);
+            console.log(`      Direct Matches: ${skillsBreakdown.directMatches} (${skillsBreakdown.directMatchScore}%)`);
+            console.log(`      Keyword Matches: ${skillsBreakdown.keywordMatches} (${skillsBreakdown.keywordMatchScore}%)`);
+            console.log(`      Related Matches: ${skillsBreakdown.relatedMatches} (${skillsBreakdown.relatedMatchScore}%)`);
             
-            // Enhanced job title details
-            const titleAnalysis = match.detailedAnalysis.jobTitleAnalysis;
-            console.log(`   📋 Job Title Analysis:`);
-            console.log(`      Original Job Title: "${titleAnalysis.originalJobTitle}"`);
-            console.log(`      User Dream Job: "${titleAnalysis.originalUserTitle}"`);
-            console.log(`      Normalized Job: "${titleAnalysis.normalizedJobTitle}"`);
-            console.log(`      Normalized User: "${titleAnalysis.normalizedUserTitle}"`);
-            console.log(`      Match Details: ${titleAnalysis.details.join(', ')}`);
-            
-            console.log(`   🎯 Match Details: ${match.matchDetails.join(', ')}`);
+            // Secondary factors
+            console.log(`   📋 Secondary Score: ${match.secondaryScore}/100`);
+            console.log(`   🎯 Match Details: ${match.matchDetails.slice(0, 3).join(', ')}`);
             
             if (match.profileAnalysis.missingFields.length > 0) {
-                console.log(`   ❌ Missing Fields: ${match.profileAnalysis.missingFields.join(', ')}`);
+                console.log(`   ❌ Missing Fields: ${match.profileAnalysis.missingFields.slice(0, 3).join(', ')}`);
             } else {
                 console.log(`   ✅ Profile Complete`);
             }
@@ -424,106 +549,21 @@ const findSimilarUsers = async (jobData) => {
         if (perfectMatches.length > 0) {
             console.log('\n🌟 PERFECT MATCHES (Score >= 90):');
             perfectMatches.forEach((match, index) => {
-            console.log(`${index + 1}. ${match.user.name} (${match.user.email}) - Score: ${match.score}`);
-                console.log(`   💼 Job Title: "${match.detailedAnalysis.jobTitleAnalysis.originalJobTitle}" vs "${match.detailedAnalysis.jobTitleAnalysis.originalUserTitle}"`);
-                console.log(`   📍 Location: ${match.detailedAnalysis.locationAnalysis.matchType}`);
-                console.log(`   🔧 Skills: ${match.detailedAnalysis.skillsScore}/100`);
+                console.log(`${index + 1}. ${match.user.name} (${match.user.email}) - Score: ${match.score}`);
+                console.log(`   🔧 Skills Score: ${match.skillsScore}/100`);
+                console.log(`   📍 Location: ${match.user.resident_country || 'Not specified'}`);
             });
         }
 
-        // Show location-specific matches
-        const locationMatches = topMatches.filter(match => match.detailedAnalysis.locationScore >= 70);
-        if (locationMatches.length > 0) {
-            console.log('\n📍 STRONG LOCATION MATCHES (Score >= 70):');
-            locationMatches.slice(0, 10).forEach((match, index) => {
+        // Show high skills matches (skills score >= 70)
+        const highSkillsMatches = topMatches.filter(match => match.skillsScore >= 70);
+        if (highSkillsMatches.length > 0) {
+            console.log('\n🔧 HIGH SKILLS MATCHES (Skills Score >= 70):');
+            highSkillsMatches.slice(0, 10).forEach((match, index) => {
                 console.log(`${index + 1}. ${match.user.name} (${match.user.email})`);
-                console.log(`   📍 Location: ${match.user.resident_country} - ${match.detailedAnalysis.locationAnalysis.matchType}`);
-                console.log(`   💼 Job Title: "${match.detailedAnalysis.jobTitleAnalysis.originalJobTitle}" vs "${match.detailedAnalysis.jobTitleAnalysis.originalUserTitle}"`);
+                console.log(`   🔧 Skills Score: ${match.skillsScore}/100`);
                 console.log(`   📊 Total Score: ${match.score}/100`);
-            });
-        }
-
-        // Show job title-specific matches
-        const jobTitleMatches = topMatches.filter(match => match.detailedAnalysis.jobTitleScore >= 70);
-        if (jobTitleMatches.length > 0) {
-            console.log('\n💼 STRONG JOB TITLE MATCHES (Score >= 70):');
-            jobTitleMatches.slice(0, 10).forEach((match, index) => {
-                console.log(`${index + 1}. ${match.user.name} (${match.user.email})`);
-                console.log(`   💼 Job Title: "${match.detailedAnalysis.jobTitleAnalysis.originalJobTitle}" vs "${match.detailedAnalysis.jobTitleAnalysis.originalUserTitle}"`);
-                console.log(`   📍 Location: ${match.user.resident_country} - ${match.detailedAnalysis.locationAnalysis.matchType}`);
-                console.log(`   📊 Total Score: ${match.score}/100`);
-            });
-        }
-
-        // Show users with low scores but complete profiles
-        const lowScoreCompleteProfiles = scoredUsers
-            .filter(user => user.score <= 20 && user.profileAnalysis.completionPercentage >= 80)
-            .sort((a, b) => b.profileAnalysis.completionPercentage - a.profileAnalysis.completionPercentage)
-            .slice(0, 10);
-
-        if (lowScoreCompleteProfiles.length > 0) {
-            console.log('\n📈 HIGH COMPLETION, LOW MATCH SCORE:');
-            lowScoreCompleteProfiles.forEach((user, index) => {
-                console.log(`${index + 1}. ${user.user.name} (${user.user.email})`);
-                console.log(`   📊 Match Score: ${user.score}/100`);
-                console.log(`   📈 Profile Completion: ${user.profileAnalysis.completionPercentage}%`);
-                console.log(`   ❌ Missing Fields: ${user.profileAnalysis.missingFields.join(', ')}`);
-            });
-        }
-
-        // Show profile completion statistics
-        const completionStats = {
-            '90-100%': 0,
-            '80-89%': 0,
-            '70-79%': 0,
-            '60-69%': 0,
-            '50-59%': 0,
-            '40-49%': 0,
-            '30-39%': 0,
-            '20-29%': 0,
-            '10-19%': 0,
-            '0-9%': 0
-        };
-
-        scoredUsers.forEach(user => {
-            const completion = user.profileAnalysis.completionPercentage;
-            if (completion >= 90) completionStats['90-100%']++;
-            else if (completion >= 80) completionStats['80-89%']++;
-            else if (completion >= 70) completionStats['70-79%']++;
-            else if (completion >= 60) completionStats['60-69%']++;
-            else if (completion >= 50) completionStats['50-59%']++;
-            else if (completion >= 40) completionStats['40-49%']++;
-            else if (completion >= 30) completionStats['30-39%']++;
-            else if (completion >= 20) completionStats['20-29%']++;
-            else if (completion >= 10) completionStats['10-19%']++;
-            else completionStats['0-9%']++;
-        });
-
-        console.log('\n📊 PROFILE COMPLETION STATISTICS:');
-        Object.entries(completionStats).forEach(([range, count]) => {
-            if (count > 0) {
-                const percentage = Math.round((count / allUsers.length) * 100);
-                console.log(`   ${range}: ${count} users (${percentage}%)`);
-            }
-        });
-
-        // Show most common missing fields
-        const missingFieldsCount = {};
-        scoredUsers.forEach(user => {
-            user.profileAnalysis.missingFields.forEach(field => {
-                missingFieldsCount[field] = (missingFieldsCount[field] || 0) + 1;
-            });
-        });
-
-        const sortedMissingFields = Object.entries(missingFieldsCount)
-            .sort(([,a], [,b]) => b - a)
-            .slice(0, 10);
-
-        if (sortedMissingFields.length > 0) {
-            console.log('\n❌ MOST COMMON MISSING FIELDS:');
-            sortedMissingFields.forEach(([field, count]) => {
-                const percentage = Math.round((count / allUsers.length) * 100);
-                console.log(`   ${field}: ${count} users (${percentage}%)`);
+                console.log(`   📍 Location: ${match.user.resident_country || 'Not specified'}`);
             });
         }
 
@@ -544,21 +584,24 @@ const findSimilarUsers = async (jobData) => {
             }
         });
 
-        console.log('\n✅ ===== SKILLS-BASED ANALYSIS COMPLETE =====\n');
+        console.log('\n✅ ===== ENHANCED SKILLS-BASED ANALYSIS COMPLETE =====\n');
 
         return {
             jobTitle: jobCriteria.jobTitle,
             jobLocation: jobCriteria.jobLocation,
             totalCandidates: allUsers.length,
+            usersWithSkillsMatch: scoredUsers.length,
+            usersWithMeaningfulSkillsMatch: usersWithSkillsMatch.length,
             topMatches: topMatches.length,
             matches: topMatches,
             perfectMatches: perfectMatches.length,
             analysis: {
                 totalUsersAnalyzed: allUsers.length,
-                usersWithMatchScore: topMatches.length,
+                usersWithSkillsMatch: scoredUsers.length,
+                usersWithMeaningfulSkillsMatch: usersWithSkillsMatch.length,
+                usersToNotify: topMatches.length,
+                maxUsersLimit: maxUsers,
                 perfectMatches: perfectMatches.length,
-                completionStats,
-                mostCommonMissingFields: sortedMissingFields,
                 matchQualityStats: matchStats
             }
         };
@@ -713,9 +756,12 @@ export const createJob = async (req, res, next) => {
             applicationQuestions: job.applicationQuestions
         });
 
+        // Get maxUsers parameter from request body or use default
+        const maxUsers = jobData.maxUsers || 500;
+        
         // Find similar users after job creation
         console.log('🚀 Job created successfully, now finding similar users...');
-        const userMatches = await findSimilarUsers(jobData);
+        const userMatches = await findSimilarUsers(jobData, maxUsers);
         
         // Send job alert emails to matched users (only if not created via payment)
         if (!jobData.skipEmailAlerts && userMatches.matches && userMatches.matches.length > 0) {
@@ -734,8 +780,11 @@ export const createJob = async (req, res, next) => {
             job,
             userMatches: {
                 totalCandidates: userMatches.totalCandidates,
+                usersWithSkillsMatch: userMatches.usersWithSkillsMatch,
                 topMatches: userMatches.topMatches,
-                emailSent: userMatches.matches ? userMatches.matches.length : 0
+                emailSent: userMatches.matches ? userMatches.matches.length : 0,
+                maxUsersLimit: maxUsers,
+                analysis: userMatches.analysis
             }
         });
     } catch (error) {
@@ -1753,11 +1802,11 @@ export const getJobRecommendations = async (req, res, next) => {
 
         // Get top 8 jobs with score > 10 (lowered threshold for more results)
         const topRecommendations = jobsWithScores
-            .filter(item => item.score > 10)
+            .filter(item => item.score > 50)
             .sort((a, b) => b.score - a.score)
             .slice(0, 8);
 
-        console.log(`Recommendations Debug - Jobs with scores > 10: ${jobsWithScores.filter(item => item.score > 10).length}, Top recommendations: ${topRecommendations.length}`);
+        console.log(`Recommendations Debug - Jobs with scores > 50: ${jobsWithScores.filter(item => item.score > 50).length}, Top recommendations: ${topRecommendations.length}`);
 
         // If we have top recommendations, fetch full job details
         if (topRecommendations.length > 0) {
