@@ -1,6 +1,6 @@
 import express from 'express';
 import { updateUserDomain, updateMyDomain, getAllDomains, initializeDomains } from '../controllers/domainController.js';
-import { auth } from '../middleware/auth.js';
+import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -11,9 +11,9 @@ router.post('/initialize', initializeDomains);
 router.get('/', getAllDomains);
 
 // Update user domain (admin/with userId)
-router.put('/user/:userId', auth, updateUserDomain);
+router.put('/user/:userId', protect, updateUserDomain);
 
 // Update current user's domain
-router.put('/my-domain', auth, updateMyDomain);
+router.put('/my-domain', protect, updateMyDomain);
 
 export default router; 
