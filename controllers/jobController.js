@@ -5,30 +5,98 @@ import { sendJobAlertEmails } from './broadcastController.js';
 
 // Function to find similar users based on job criteria
 const findSimilarUsers = async (jobData, maxUsers = 500) => {
-    const usersWithMatchingDomain = []; // IMPLEMENT: domain matching logic
-    const usersWithSkillsMatch = []; // IMPLEMENT: skills matching logic
     try {
-        // Get ALL users with skills (focus on skills rather than profile completion)
-        let allUsers = await User.find({ 
-            skills_and_capabilities: { $exists: true, $ne: [], $not: { $size: 0 } }
-        })
-            .select('work_domain');
+        // Extract job category and subcategory from job data
+        const jobCategory = jobData.category;
+        const jobSubCategory = jobData.subcategory;
+        
+        console.log(`🔍 Finding similar users for job: ${jobData.jobTitle}`);
+        console.log(`📋 Job Category: ${jobCategory}, Subcategory: ${jobSubCategory}`);
 
-        console.log(`📊 Found ${allUsers.length} users with skills (regardless of profile completion)`);
+        // Fetch all users from the database
+        const allUsers = await User.find({})
+            .select('name email work_domain personal_branding_statement skills_and_capabilities notInterestedJobCategories');
 
-        // marked category as not interested
-        allUsers = allUsers.filter(user => {
-            if (!user.notInterestedJobCategories || user.notInterestedJobCategories.length === 0) {
-                return true;
-            }
+        console.log(`📊 Total users found: ${allUsers.length}`);
+
+        // Extract users who have work domain completed
+        const usersWithWorkDomain = allUsers.filter(user => 
+            user.work_domain && user.work_domain.trim() !== ''
+        );
+
+        console.log(`🏢 Users with work domain completed: ${usersWithWorkDomain.length}`);
+
+        // Extract users who have personal summary, skills, and domain completed
+        const usersWithCompleteProfile = allUsers.filter(user => 
+            user.work_domain && user.work_domain.trim() !== '' &&
+            user.personal_branding_statement && user.personal_branding_statement.trim() !== '' &&
+            user.skills_and_capabilities && user.skills_and_capabilities.length > 0
+        );
+
+        console.log(`✅ Users with complete profile (domain + summary + skills): ${usersWithCompleteProfile.length}`);
+
+        // Filter out users who have marked this job category as not interested
+        const filterNotInterestedUsers = (users) => {
+            return users.filter(user => {
+                if (!user.notInterestedJobCategories || user.notInterestedJobCategories.length === 0) {
+                    return true;
+                }
+                
+                return !user.notInterestedJobCategories.some(category =>
+                    category.jobSubCategory === jobSubCategory
+                );
+            });
+        };
+
+        // Filter users with work domain who are not interested in this category
+        const filteredUsersWithWorkDomain = filterNotInterestedUsers(usersWithWorkDomain);
+        console.log(`🏢 Users with work domain (after filtering not interested): ${filteredUsersWithWorkDomain.length}`);
+
+        // Filter users with complete profile who are not interested in this category
+        const filteredUsersWithCompleteProfile = filterNotInterestedUsers(usersWithCompleteProfile);
+        console.log(`✅ Users with complete profile (after filtering not interested): ${filteredUsersWithCompleteProfile.length}`);
+
+        // Match users with work domain completed with job's main category
+        const usersWithMatchingDomain = filteredUsersWithWorkDomain.filter(user => {
+            const userDomain = user.work_domain.toLowerCase().trim();
+            const jobCategoryLower = jobCategory.toLowerCase().trim();
             
-            return !user.notInterestedJobCategories.some(category =>
-                category.jobSubCategory === jobData.subcategory
-            );
+            // Check if user's work domain matches the job category
+            return userDomain.includes(jobCategoryLower) || 
+                   jobCategoryLower.includes(userDomain)
         });
+
+        console.log(`🎯 Users with matching domain: ${usersWithMatchingDomain.length}`);
+
+        // Match users with complete profile (personal summary, skills, domain) with job category
+        const usersWithSkillsMatch = filteredUsersWithCompleteProfile.filter(user => {
+            const userDomain = user.work_domain.toLowerCase().trim();
+            const jobCategoryLower = jobCategory.toLowerCase().trim();
+            const userSkills = user.skills_and_capabilities.map(skill => skill.toLowerCase().trim());
+            
+            // Check domain match
+            const domainMatch = userDomain.includes(jobCategoryLower) || jobCategoryLower.includes(userDomain)
+
+            // Check skills match (if job has skills data)
+            let skillsMatch = false;
+            if (jobData.jobSkills && jobData.jobSkills.length > 0) {
+                const jobSkills = jobData.jobSkills.map(skill => skill.toLowerCase().trim());
+                const matchingSkills = userSkills.filter(userSkill => 
+                    jobSkills.some(jobSkill => 
+                        jobSkill.includes(userSkill) || userSkill.includes(jobSkill)
+                    )
+                );
+                skillsMatch = matchingSkills.length > 0;
+            }
+
+            return domainMatch || skillsMatch;
+        });
+
+        console.log(`🔧 Users with skills match: ${usersWithSkillsMatch.length}`);
+
+        // Analyze profile completeness for all matched users
         const analyzeProfileCompleteness = (user) => {
             const missingFields = [];
-            // 5 editable sections (match frontend)
             const profileFields = {
                 'Personal Summary': user.personal_branding_statement && user.personal_branding_statement.trim() !== '',
                 'License': user.licenses && Array.isArray(user.licenses) && user.licenses.length > 0,
@@ -51,22 +119,67 @@ const findSimilarUsers = async (jobData, maxUsers = 500) => {
                 completionPercentage,
                 totalFields: Object.keys(profileFields).length,
                 completedFields,
-                isEligible: completedFields >= 8
+                isEligible: completedFields >= 3 // Lowered threshold for more matches
             };
         };
 
+        // Prepare results with user details and analysis
+        const prepareUserMatches = (users, matchType) => {
+            return users.map(user => ({
+                user: {
+                    _id: user._id,
+                    name: user.name,
+                    email: user.email,
+                    work_domain: user.work_domain,
+                    skills_and_capabilities: user.skills_and_capabilities,
+                    personal_branding_statement: user.personal_branding_statement
+                },
+                matchType,
+                profileAnalysis: analyzeProfileCompleteness(user)
+            }));
+        };
+
+        // Get top matches for different purposes
+        const topMatchesForEmail = prepareUserMatches(usersWithMatchingDomain.slice(0, 100), 'domain_match');
+        const topMatchesForNotification = prepareUserMatches(usersWithSkillsMatch.slice(0, 50), 'skills_match');
+        const perfectMatchesForBoost = prepareUserMatches(
+            usersWithSkillsMatch.filter(user => analyzeProfileCompleteness(user).completionPercentage >= 80).slice(0, 20), 
+            'perfect_match'
+        );
+
+        console.log(`📧 Top matches for email: ${topMatchesForEmail.length}`);
+        console.log(`🔔 Top matches for notification: ${topMatchesForNotification.length}`);
+        console.log(`⭐ Perfect matches for boost: ${perfectMatchesForBoost.length}`);
+
         return {
-            totalMatches: usersWithMatchingDomain.length,
-            topMatchesForEmail: null,
-            topMatchesForNotification: null,
-            perfectMatchesForBoost: null, // IMPLEMENT: For BOOST !
-        }
+            totalMatches: usersWithMatchingDomain.length + usersWithSkillsMatch.length,
+            usersWithMatchingDomain: usersWithMatchingDomain.length,
+            usersWithSkillsMatch: usersWithSkillsMatch.length,
+            topMatchesForEmail,
+            topMatchesForNotification,
+            perfectMatchesForBoost,
+            analysis: {
+                totalUsers: allUsers.length,
+                usersWithWorkDomain: usersWithWorkDomain.length,
+                usersWithCompleteProfile: usersWithCompleteProfile.length,
+                filteredUsersWithWorkDomain: filteredUsersWithWorkDomain.length,
+                filteredUsersWithCompleteProfile: filteredUsersWithCompleteProfile.length,
+                jobCategory,
+                jobSubCategory
+            }
+        };
 
     } catch (error) {
         console.error('❌ Error finding similar users:', error);
         return {
             error: error.message,
-            matches: []
+            totalMatches: 0,
+            usersWithMatchingDomain: 0,
+            usersWithSkillsMatch: 0,
+            topMatchesForEmail: [],
+            topMatchesForNotification: [],
+            perfectMatchesForBoost: [],
+            analysis: {}
         };
     }
 };
