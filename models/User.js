@@ -270,6 +270,7 @@ const userSchema = new mongoose.Schema({
         default: {}
     },
     personal_branding_statement: String,
+    work_domain: String,
     hobbies: {
         type: [String],
         default: []

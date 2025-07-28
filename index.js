@@ -14,6 +14,8 @@ import broadcastRoutes from './routes/broadcast.routes.js';
 import paymentRoutes from './routes/payment.routes.js';
 import contactRoutes from './routes/contact.routes.js';
 import resumeRoutes from './routes/resumeRoutes.js';
+import domainRoutes from './routes/domain.js';
+import { initializeDomains } from './controllers/domainController.js';
 
 dotenv.config();
 
@@ -37,6 +39,9 @@ const connectDB = async () => {
     });
 
     console.log(`MongoDB Connected: ${conn.connection.host}`);
+
+    // Initialize domains after successful database connection
+    await initializeDomains();
 
     // Handle connection errors after initial connection
     mongoose.connection.on('error', (err) => {
@@ -83,6 +88,7 @@ app.use('/api/broadcast', broadcastRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/resume', resumeRoutes);
+app.use('/api/domains', domainRoutes);
 
 // Error handling middleware
 app.use(errorHandler);
