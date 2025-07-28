@@ -465,52 +465,41 @@ export const createJob = async (req, res, next) => {
     }
 
     // Create notifications for matched users
-    if (
-      userMatches.topMatchesForNotification &&
-      userMatches.topMatchesForNotification.length > 0
-    ) {
+    if (userMatches.topMatchesForNotification && userMatches.topMatchesForNotification.length > 0) {
       console.log(
         `🔔 Creating notifications for ${userMatches.topMatchesForNotification.length} users for job: ${jobData.jobTitle}`
       );
 
-      const notificationPromises = userMatches.topMatchesForNotification.map(
-        async (match) => {
-          try {
-            const notificationData = {
-              userId: match.user._id,
-              type: "job_match",
-              title: "New Job Match",
-              message: `A new ${jobData.jobTitle} position matching your skills has been posted.`,
-              priority: "medium",
-              metadata: {
-                jobId: job._id,
-                jobTitle: jobData.jobTitle,
-                employerId: jobData.postedBy,
-                matchScore: match.profileAnalysis?.overallScore || 0,
-              },
-            };
+      const notificationPromises = userMatches.topMatchesForNotification.map(async (match) => {
+        try {
+          console.log(`📝 Creating notification for user: ${match.user._id}`);
+          const notificationData = {
+            userId: match.user._id,
+            type: 'job_match',
+            title: 'New Job Match',
+            message: `A new ${jobData.jobTitle} position matching your skills has been posted.`,
+            priority: 'medium',
+            metadata: {
+              jobId: job._id,
+              jobTitle: jobData.jobTitle,
+              employerId: jobData.postedBy,
+              matchScore: match.profileAnalysis?.overallScore || 0
+            }
+          };
 
-            await createNotification(notificationData);
-            return { success: true, userId: match.user._id };
-          } catch (error) {
-            console.error(
-              `Failed to create notification for user ${match.user._id}:`,
-              error
-            );
-            return {
-              success: false,
-              userId: match.user._id,
-              error: error.message,
-            };
-          }
+          console.log(`📋 Notification data:`, notificationData);
+          const createdNotification = await createNotification(notificationData);
+          console.log(`✅ Notification created successfully: ${createdNotification._id}`);
+          return { success: true, userId: match.user._id };
+        } catch (error) {
+          console.error(`❌ Failed to create notification for user ${match.user._id}:`, error);
+          return { success: false, userId: match.user._id, error: error.message };
         }
-      );
+      });
 
-      const notificationResults = await Promise.allSettled(
-        notificationPromises
-      );
-      const successfulNotifications = notificationResults.filter(
-        (result) => result.status === "fulfilled" && result.value.success
+      const notificationResults = await Promise.allSettled(notificationPromises);
+      const successfulNotifications = notificationResults.filter(result => 
+        result.status === 'fulfilled' && result.value.success
       ).length;
 
       console.log(
