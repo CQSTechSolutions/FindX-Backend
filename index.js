@@ -5,14 +5,12 @@ import mongoose from 'mongoose';
 import errorHandler from './middleware/errorHandler.js';
 import authRoutes from './routes/auth.js';
 import jobRoutes from './routes/jobRoutes.js';
-import educationRoutes from './routes/education.js';
 import employerRoutes from './routes/employer.routes.js';
 import messageRoutes from './routes/messageRoutes.js';
 import userSearchRoutes from './routes/userSearch.routes.js';
 import interviewRoutes from './routes/interview.routes.js';
 import broadcastRoutes from './routes/broadcast.routes.js';
 import paymentRoutes from './routes/payment.routes.js';
-import contactRoutes from './routes/contact.routes.js';
 import resumeRoutes from './routes/resumeRoutes.js';
 import domainRoutes from './routes/domain.js';
 import { initializeDomains } from './controllers/domainController.js';
@@ -79,14 +77,12 @@ app.get('/api/health', (req, res) => {
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/jobs', jobRoutes);
-app.use('/api/education', educationRoutes);
 app.use('/api/employer', employerRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/user-search', userSearchRoutes);
 app.use('/api/interviews', interviewRoutes);
 app.use('/api/broadcast', broadcastRoutes);
 app.use('/api/payments', paymentRoutes);
-app.use('/api/contact', contactRoutes);
 app.use('/api/resume', resumeRoutes);
 app.use('/api/domains', domainRoutes);
 
