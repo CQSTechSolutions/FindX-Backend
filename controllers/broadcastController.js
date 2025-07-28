@@ -1,14 +1,14 @@
-import User from '../models/User.js';
-import Employer from '../models/employer.model.js';
-import nodemailer from 'nodemailer';
-import dotenv from 'dotenv';
+import dotenv from "dotenv";
+import nodemailer from "nodemailer";
+import User from "../models/User.js";
+import Employer from "../models/employer.model.js";
 
 dotenv.config();
 
 // Create nodemailer transporter
 const createTransporter = () => {
   return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    host: process.env.SMTP_HOST || "smtp.gmail.com",
     port: process.env.SMTP_PORT || 587,
     secure: false, // true for 465, false for other ports
     auth: {
@@ -18,27 +18,34 @@ const createTransporter = () => {
   });
 };
 
-
 // Get broadcast statistics
 export const getBroadcastStats = async (req, res) => {
   try {
     const totalUsers = await User.countDocuments();
-    const usersWithEmails = await User.countDocuments({ email: { $exists: true, $ne: null } });
-    
+    const usersWithEmails = await User.countDocuments({
+      email: { $exists: true, $ne: null },
+    });
+
     res.status(200).json({
       success: true,
       stats: {
         totalUsers,
         usersWithEmails,
-        emailDeliveryRate: usersWithEmails > 0 ? ((usersWithEmails / totalUsers) * 100).toFixed(1) : 0
-      }
+        emailDeliveryRate:
+          usersWithEmails > 0
+            ? ((usersWithEmails / totalUsers) * 100).toFixed(1)
+            : 0,
+      },
     });
   } catch (error) {
-    console.error('Broadcast stats error:', error);
+    console.error("Broadcast stats error:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to get broadcast statistics',
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      message: "Failed to get broadcast statistics",
+      error:
+        process.env.NODE_ENV === "development"
+          ? error.message
+          : "Internal server error",
     });
   }
 };
@@ -47,26 +54,33 @@ export const getBroadcastStats = async (req, res) => {
 export const testEmailConfig = async (req, res) => {
   try {
     const transporter = createTransporter();
-    
+
     // Verify the connection configuration
     await transporter.verify();
-    
+
     res.status(200).json({
       success: true,
-      message: 'Email configuration is valid'
+      message: "Email configuration is valid",
     });
   } catch (error) {
-    console.error('Email config test error:', error);
+    console.error("Email config test error:", error);
     res.status(500).json({
       success: false,
-      message: 'Email configuration is invalid',
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Email configuration error'
+      message: "Email configuration is invalid",
+      error:
+        process.env.NODE_ENV === "development"
+          ? error.message
+          : "Email configuration error",
     });
   }
 };
 
 // Send job alert emails to matched users using BCC (efficient approach)
-export const sendJobAlertEmails = async (jobData, userEmails) => {
+export const sendJobAlertEmails = async (
+  jobData,
+  userEmails,
+  maxEmails = null
+) => {
   try {
     console.log(
       "📧 Sending job alert emails to",
@@ -164,9 +178,17 @@ You received this email because this job matches your profile and preferences.
     `;
 
     // Use the provided matched users directly (they already have email addresses)
-    const validUserEmails = userEmails.filter(
+    let validUserEmails = userEmails.filter(
       (email) => email && email.trim() !== ""
     );
+
+    // Limit emails if maxEmails parameter is provided
+    if (maxEmails && maxEmails > 0 && validUserEmails.length > maxEmails) {
+      console.log(
+        `📧 Limiting emails to ${maxEmails} out of ${validUserEmails.length} matched users`
+      );
+      validUserEmails = validUserEmails.slice(0, maxEmails);
+    }
 
     if (validUserEmails.length === 0) {
       console.log("⚠️ No valid email addresses found in matched users");
@@ -559,4 +581,4 @@ FindX - Your Gateway to Career Success
       error: error.message,
     };
   }
-}; 
+};

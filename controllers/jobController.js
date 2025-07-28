@@ -2,6 +2,7 @@ import Job from "../models/Job.model.js";
 import User from "../models/User.js";
 import Employer from "../models/employer.model.js";
 import { sendJobAlertEmails } from "./broadcastController.js";
+import { createNotification } from "./notificationController.js";
 
 // Function to find similar users based on job criteria
 const findSimilarUsers = async (jobData, maxUsers = 500) => {
@@ -461,6 +462,62 @@ export const createJob = async (req, res, next) => {
       );
     } else {
       console.warn("⚠️ No user emails found to send job alerts.");
+    }
+
+    // Create notifications for matched users
+    if (
+      userMatches.topMatchesForNotification &&
+      userMatches.topMatchesForNotification.length > 0
+    ) {
+      console.log(
+        `🔔 Creating notifications for ${userMatches.topMatchesForNotification.length} users for job: ${jobData.jobTitle}`
+      );
+
+      const notificationPromises = userMatches.topMatchesForNotification.map(
+        async (match) => {
+          try {
+            const notificationData = {
+              userId: match.user._id,
+              type: "job_match",
+              title: "New Job Match",
+              message: `A new ${jobData.jobTitle} position matching your skills has been posted.`,
+              priority: "medium",
+              metadata: {
+                jobId: job._id,
+                jobTitle: jobData.jobTitle,
+                employerId: jobData.postedBy,
+                matchScore: match.profileAnalysis?.overallScore || 0,
+              },
+            };
+
+            await createNotification(notificationData);
+            return { success: true, userId: match.user._id };
+          } catch (error) {
+            console.error(
+              `Failed to create notification for user ${match.user._id}:`,
+              error
+            );
+            return {
+              success: false,
+              userId: match.user._id,
+              error: error.message,
+            };
+          }
+        }
+      );
+
+      const notificationResults = await Promise.allSettled(
+        notificationPromises
+      );
+      const successfulNotifications = notificationResults.filter(
+        (result) => result.status === "fulfilled" && result.value.success
+      ).length;
+
+      console.log(
+        `✅ Notifications created successfully: ${successfulNotifications}/${userMatches.topMatchesForNotification.length} users`
+      );
+    } else {
+      console.log("ℹ️ No users found for notifications.");
     }
 
     res.status(201).json({
@@ -1041,6 +1098,31 @@ export const applyForJob = async (req, res, next) => {
       message: "Application submitted successfully",
     });
 
+    // Create notification for employer about new application
+    try {
+      const notificationData = {
+        userId: job.postedBy, // Employer's user ID
+        type: "application_update",
+        title: "New Job Application",
+        message: `${req.user.name} has applied for your ${job.jobTitle} position.`,
+        priority: "medium",
+        metadata: {
+          jobId: job._id,
+          jobTitle: job.jobTitle,
+          applicantId: req.user.id,
+          applicantName: req.user.name,
+        },
+      };
+
+      await createNotification(notificationData);
+      console.log(
+        `✅ Notification created for employer ${job.postedBy} about new application`
+      );
+    } catch (notificationError) {
+      console.error("Error creating employer notification:", notificationError);
+      // Don't fail the application if notification creation fails
+    }
+
     console.log("=== APPLICATION SUBMITTED SUCCESSFULLY ===");
     console.log("Final applicant data saved:", {
       jobId: job._id,
@@ -1114,6 +1196,57 @@ export const updateApplicationStatus = async (req, res, next) => {
     }
 
     await job.save();
+
+    // Create notification for applicant about status update
+    try {
+      let notificationMessage = "";
+      let notificationType = "application_update";
+
+      switch (status) {
+        case "Interview":
+          notificationMessage = `Your application for ${job.jobTitle} has been shortlisted for an interview!`;
+          notificationType = "interview_invitation";
+          break;
+        case "Rejected":
+          notificationMessage = `Your application for ${job.jobTitle} has been reviewed.`;
+          break;
+        case "Hired":
+          notificationMessage = `Congratulations! You've been hired for the ${job.jobTitle} position!`;
+          break;
+        case "Blocked":
+          notificationMessage = `Your application for ${job.jobTitle} has been blocked.`;
+          break;
+        default:
+          notificationMessage = `Your application status for ${job.jobTitle} has been updated to ${status}.`;
+      }
+
+      const notificationData = {
+        userId: application.user, // Applicant's user ID
+        type: notificationType,
+        title: "Application Status Update",
+        message: notificationMessage,
+        priority:
+          status === "Interview" || status === "Hired" ? "high" : "medium",
+        metadata: {
+          jobId: job._id,
+          jobTitle: job.jobTitle,
+          employerId: job.postedBy,
+          status: status,
+          interviewDetails: application.interviewDetails || null,
+        },
+      };
+
+      await createNotification(notificationData);
+      console.log(
+        `✅ Notification created for applicant ${application.user} about status update: ${status}`
+      );
+    } catch (notificationError) {
+      console.error(
+        "Error creating applicant notification:",
+        notificationError
+      );
+      // Don't fail the status update if notification creation fails
+    }
 
     res.json({
       success: true,

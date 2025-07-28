@@ -1,10 +1,6 @@
 import Stripe from 'stripe';
 import Payment from '../models/Payment.model.js';
-import Job from '../models/Job.model.js';
-import Employer from '../models/employer.model.js';
-import User from '../models/User.js';
 import mongoose from 'mongoose';
-import { sendJobAlertEmails } from './broadcastController.js';
 import { createJob } from './jobController.js';
 
 // Initialize Stripe with error handling
@@ -49,7 +45,7 @@ const PRICING_CONFIG = {
         Boosted1000Both: { id: 'Boosted1000Both', name: 'Boosted 1000 - Both', price: 29900, savings: 19900 }
     },
     ADD_ONS: {
-        immediateStart: { id: 'immediateStart', name: 'Immediate Start Badge', price: 1900 },
+        immediateStart: { id: 'immediateStart', name: 'Immediate Start Badge', price: 4500 },
         referenceCheck: { id: 'referenceCheck', name: 'Reference Check Access', price: 1900 }
     }
 };
