@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import Domain from '../models/Domain.model.js';
 import mongoose from 'mongoose';
 import _ from 'lodash';
 
@@ -278,6 +279,44 @@ export const updateUserProfile = async (req, res, next) => {
         // For simple fields, direct assignment
         updateOps[key] = value;
       }
+    }
+
+    // Handle work_domain updates specially to maintain domain-user relationships
+    if (updates.work_domain) {
+      const currentUser = await User.findById(userId);
+      if (!currentUser) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      // Validate that the domain is one of the predefined domains
+      const validDomains = Domain.schema.path('name').enumValues;
+      if (!validDomains.includes(updates.work_domain)) {
+        return res.status(400).json({ 
+          message: "Invalid domain", 
+          validDomains: validDomains 
+        });
+      }
+
+      // Store the previous domain to remove user email from it
+      const previousDomain = currentUser.work_domain;
+
+      // Remove user email from previous domain if it exists
+      if (previousDomain && previousDomain !== updates.work_domain) {
+        await Domain.findOneAndUpdate(
+          { name: previousDomain },
+          { $pull: { userEmails: currentUser.email } }
+        );
+      }
+
+      // Add user email to the new domain
+      await Domain.findOneAndUpdate(
+        { name: updates.work_domain },
+        { $addToSet: { userEmails: currentUser.email } },
+        { upsert: true }
+      );
     }
 
     // Use findByIdAndUpdate to avoid version conflicts
