@@ -66,68 +66,82 @@ export const testEmailConfig = async (req, res) => {
 };
 
 // Send job alert emails to matched users using BCC (efficient approach)
-export const sendJobAlertEmails = async (jobData, matchedUsers) => {
+export const sendJobAlertEmails = async (jobData, userEmails) => {
   try {
-    console.log('📧 Sending job alert emails to', matchedUsers.length, 'matched users');
-    
-    if (matchedUsers.length === 0) {
-      console.log('⚠️ No matched users to send emails to');
+    console.log(
+      "📧 Sending job alert emails to",
+      userEmails.length,
+      "matched users"
+    );
+
+    if (userEmails.length === 0) {
+      console.log("⚠️ No matched users to send emails to");
       return { success: true, sentCount: 0 };
     }
 
     // Extract emails for BCC
-    const userEmails = matchedUsers.map(user => user.email);
+    // const matchedUsers = userEmails.map((user) => user.email);
 
-    console.log('🔍 User emails:', userEmails);
-    console.log('🔍 Job data:', jobData);
-    
+    console.log("🔍 User emails:", userEmails);
+    console.log("🔍 Job data:", jobData);
+
     // Fetch employer data to get company information
     let employerData = null;
-    let companyName = 'Our Company';
-    let companyLogo = '';
-    let companyWebsite = '';
-    let companyIndustry = '';
-    
+    let companyName = "Our Company";
+    let companyLogo = "";
+    let companyWebsite = "";
+    let companyIndustry = "";
+
     if (jobData.postedBy) {
       try {
-        employerData = await Employer.findById(jobData.postedBy).select('companyName companyLogo companyWebsite companyIndustry');
+        employerData = await Employer.findById(jobData.postedBy).select(
+          "companyName companyLogo companyWebsite companyIndustry"
+        );
         if (employerData) {
-          companyName = employerData.companyName || 'Our Company';
-          companyLogo = employerData.companyLogo || '';
-          companyWebsite = employerData.companyWebsite || '';
-          companyIndustry = employerData.companyIndustry || '';
+          companyName = employerData.companyName || "Our Company";
+          companyLogo = employerData.companyLogo || "";
+          companyWebsite = employerData.companyWebsite || "";
+          companyIndustry = employerData.companyIndustry || "";
         }
       } catch (error) {
-        console.error('❌ Error fetching employer data:', error);
+        console.error("❌ Error fetching employer data:", error);
       }
     }
-    
+
     // Prepare job alert email content with exact job title
-    const exactJobTitle = jobData.jobTitle || 'Job Position';
-    const jobLocation = jobData.jobLocation || 'Location not specified';
-    const workType = jobData.workType || 'Work type not specified';
-    const workspaceOption = jobData.workspaceOption || 'Work environment not specified';
-    
+    const exactJobTitle = jobData.jobTitle || "Job Position";
+    const jobLocation = jobData.jobLocation || "Location not specified";
+    const workType = jobData.workType || "Work type not specified";
+    const workspaceOption =
+      jobData.workspaceOption || "Work environment not specified";
+
     // Enhanced salary formatting
-    let salaryRange = 'Competitive salary';
+    let salaryRange = "Competitive salary";
     if (jobData.from && jobData.to) {
-      const currency = jobData.currency || 'AUD';
-      const salaryType = jobData.jobSalaryType || 'Per Year';
+      const currency = jobData.currency || "AUD";
+      const salaryType = jobData.jobSalaryType || "Per Year";
       salaryRange = `${currency} ${jobData.from.toLocaleString()} - ${jobData.to.toLocaleString()} ${salaryType}`;
     } else if (jobData.from) {
-      const currency = jobData.currency || 'AUD';
-      const salaryType = jobData.jobSalaryType || 'Per Year';
+      const currency = jobData.currency || "AUD";
+      const salaryType = jobData.jobSalaryType || "Per Year";
       salaryRange = `From ${currency} ${jobData.from.toLocaleString()} ${salaryType}`;
     }
 
     // Get job skills for email content
-    const jobSkills = jobData.jobSkills && jobData.jobSkills.length > 0 ? 
-      jobData.jobSkills.join(', ') : 'Skills not specified';
-    
+    const jobSkills =
+      jobData.jobSkills && jobData.jobSkills.length > 0
+        ? jobData.jobSkills.join(", ")
+        : "Skills not specified";
+
     // Get job description (truncated if too long)
-    const jobDescription = jobData.jobDescription || jobData.jobSummary || 'No description available';
-    const truncatedDescription = jobDescription.length > 200 ? 
-      jobDescription.substring(0, 200) + '...' : jobDescription;
+    const jobDescription =
+      jobData.jobDescription ||
+      jobData.jobSummary ||
+      "No description available";
+    const truncatedDescription =
+      jobDescription.length > 200
+        ? jobDescription.substring(0, 200) + "..."
+        : jobDescription;
 
     // Create job alert email content with exact title
     const title = `💼 New Job Alert: "${exactJobTitle}" at ${companyName}`;
@@ -142,16 +156,20 @@ export const sendJobAlertEmails = async (jobData, matchedUsers) => {
 💰 Salary Range: ${salaryRange}
 🔧 Required Skills: ${jobSkills}
 
-View Job Details & Apply: ${process.env.CLIENT_URL || 'https://findx.com'}/job-details/${jobData._id}
+View Job Details & Apply: ${
+      process.env.CLIENT_URL || "https://findx.com"
+    }/job-details/${jobData._id}
 
 You received this email because this job matches your profile and preferences.
     `;
 
     // Use the provided matched users directly (they already have email addresses)
-    const validUserEmails = userEmails.filter(email => email && email.trim() !== '');
-    
+    const validUserEmails = userEmails.filter(
+      (email) => email && email.trim() !== ""
+    );
+
     if (validUserEmails.length === 0) {
-      console.log('⚠️ No valid email addresses found in matched users');
+      console.log("⚠️ No valid email addresses found in matched users");
       return { success: true, sentCount: 0 };
     }
 
@@ -160,9 +178,9 @@ You received this email because this job matches your profile and preferences.
 
     // Get message type emoji and styling for job alerts
     const typeInfo = {
-      emoji: '💼',
-      color: '#10B981',
-      label: 'New Job Alert'
+      emoji: "💼",
+      color: "#10B981",
+      label: "New Job Alert",
     };
 
     // Create enhanced HTML email template for job alert
@@ -369,23 +387,27 @@ You received this email because this job matches your profile and preferences.
                 <div class="match-badge">🎯 Perfect Match Alert</div>
             </div>
             
-            ${companyLogo ? `
+            ${
+              companyLogo
+                ? `
             <div class="company-section">
                 <img src="${companyLogo}" alt="${companyName}" class="company-logo" onerror="this.style.display='none'">
                 <div class="company-info">
                     <h3>${companyName}</h3>
-                    ${companyIndustry ? `<p>${companyIndustry}</p>` : ''}
-                    ${companyWebsite ? `<p>${companyWebsite}</p>` : ''}
+                    ${companyIndustry ? `<p>${companyIndustry}</p>` : ""}
+                    ${companyWebsite ? `<p>${companyWebsite}</p>` : ""}
                 </div>
             </div>
-            ` : `
+            `
+                : `
             <div class="company-section">
                 <div class="company-info">
                     <h3>${companyName}</h3>
-                    ${companyIndustry ? `<p>${companyIndustry}</p>` : ''}
+                    ${companyIndustry ? `<p>${companyIndustry}</p>` : ""}
                 </div>
             </div>
-            `}
+            `
+            }
             
             <div class="job-title">"${exactJobTitle}"</div>
             
@@ -393,12 +415,16 @@ You received this email because this job matches your profile and preferences.
                 <p>🎯 This job perfectly matches your profile and preferences!</p>
             </div>
             
-            ${truncatedDescription !== 'No description available' ? `
+            ${
+              truncatedDescription !== "No description available"
+                ? `
             <div class="job-description">
                 <strong>Job Description:</strong><br>
                 ${truncatedDescription}
             </div>
-            ` : ''}
+            `
+                : ""
+            }
             
             <div class="job-details">
                 <div class="detail-row">
@@ -430,7 +456,9 @@ You received this email because this job matches your profile and preferences.
             
             <div class="cta-section">
                 <h3 style="margin: 0 0 15px 0; color: #065F46;">Ready to Apply?</h3>
-                <a href="${process.env.CLIENT_URL || 'https://findx.com'}/job-details/${jobData._id}" class="cta-button">
+                <a href="${
+                  process.env.CLIENT_URL || "https://findx.com"
+                }/job-details/${jobData._id}" class="cta-button">
                     🚀 View Job Details & Apply Now
                 </a>
                 <p style="margin: 10px 0 0 0; font-size: 14px; color: #047857;">
@@ -456,8 +484,8 @@ FindX 💼 - New Job Alert
 
 Job Title: "${exactJobTitle}"
 Company: ${companyName}
-${companyIndustry ? `Industry: ${companyIndustry}` : ''}
-${companyWebsite ? `Website: ${companyWebsite}` : ''}
+${companyIndustry ? `Industry: ${companyIndustry}` : ""}
+${companyWebsite ? `Website: ${companyWebsite}` : ""}
 
 📋 JOB DETAILS:
 Location: ${jobLocation}
@@ -468,14 +496,20 @@ Salary: ${salaryRange}
 🔧 REQUIRED SKILLS:
 ${jobSkills}
 
-${truncatedDescription !== 'No description available' ? `
+${
+  truncatedDescription !== "No description available"
+    ? `
 📝 JOB DESCRIPTION:
 ${truncatedDescription}
-` : ''}
+`
+    : ""
+}
 
 🚀 READY TO APPLY?
 // TODO: Add a link to the application job apply page
-View Job Details & Apply: ${process.env.CLIENT_URL || 'https://findx.com'}/job-details/${jobData._id}
+View Job Details & Apply: ${
+      process.env.CLIENT_URL || "https://findx.com"
+    }/job-details/${jobData._id}
 
 Don't miss this opportunity - apply today!
 
@@ -488,25 +522,27 @@ FindX - Your Gateway to Career Success
     // Email options using BCC (efficient approach)
     const mailOptions = {
       from: {
-        name: 'FindX Job Alerts',
-        address: process.env.SMTP_USER
+        name: "FindX Job Alerts",
+        address: process.env.SMTP_USER,
       },
       to: process.env.SMTP_USER, // Send to yourself as the main recipient
       bcc: validUserEmails, // All matched users in BCC to protect privacy
       subject: title,
       text: textContent,
       html: htmlTemplate,
-      // Add headers to prevent replies going to all users  
+      // Add headers to prevent replies going to all users
       headers: {
-        'Reply-To': process.env.SMTP_USER,
-        'List-Unsubscribe': `<mailto:unsubscribe@findx.com>`,
-      }
+        "Reply-To": process.env.SMTP_USER,
+        "List-Unsubscribe": `<mailto:unsubscribe@findx.com>`,
+      },
     };
 
     // Send email using BCC (single email to all users)
     await transporter.sendMail(mailOptions);
 
-    console.log(`📧 Job alert email sent to ${validUserEmails.length} users via BCC`);
+    console.log(
+      `📧 Job alert email sent to ${validUserEmails.length} users via BCC`
+    );
     console.log(`Subject: ${title}`);
     console.log(`Sent at: ${new Date().toISOString()}`);
 
@@ -514,14 +550,13 @@ FindX - Your Gateway to Career Success
       success: true,
       sentCount: validUserEmails.length,
       totalCount: validUserEmails.length,
-      failedEmails: [] // BCC approach doesn't provide individual failure tracking
+      failedEmails: [], // BCC approach doesn't provide individual failure tracking
     };
-
   } catch (error) {
-    console.error('❌ Error sending job alert emails:', error);
+    console.error("❌ Error sending job alert emails:", error);
     return {
       success: false,
-      error: error.message
+      error: error.message,
     };
   }
 }; 
