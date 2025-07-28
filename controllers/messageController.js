@@ -312,32 +312,62 @@ export const getUserAppliedJobs = async (req, res, next) => {
   try {
     const { userId } = req.params;
 
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: "User ID is required",
+      });
+    }
+
+    console.log(`Fetching applied jobs for user: ${userId}`);
+
     // Find jobs where user has applied
     const jobs = await Job.find({
       "applicants.user": userId,
     })
       .populate("postedBy", "companyName email companyLogo")
-      .select("jobTitle postedBy createdAt")
+      .select("jobTitle postedBy createdAt applicants")
       .sort({ createdAt: -1 });
 
+    console.log(`Found ${jobs.length} jobs for user ${userId}`);
+
     // Transform the data to match the frontend interface
-    const transformedJobs = jobs.map((job) => {
-      const applicant = job.applicants.find(
-        (app) => app.user.toString() === userId
-      );
-      return {
-        _id: job._id,
-        jobTitle: job.jobTitle,
-        employer: {
-          _id: job.postedBy._id,
-          companyName: job.postedBy.companyName,
-          email: job.postedBy.email,
-          companyLogo: job.postedBy.companyLogo,
-        },
-        applicationStatus: applicant ? applicant.status : "Pending",
-        appliedOn: applicant ? applicant.appliedOn : job.createdAt,
-      };
-    });
+    const transformedJobs = jobs
+      .map((job) => {
+        try {
+          // Add null checks for job.applicants and job.postedBy
+          if (!job.applicants || !Array.isArray(job.applicants)) {
+            console.warn(`Job ${job._id} has no applicants array`);
+            return null;
+          }
+
+          if (!job.postedBy) {
+            console.warn(`Job ${job._id} has no postedBy data`);
+            return null;
+          }
+
+          const applicant = job.applicants.find(
+            (app) => app && app.user && app.user.toString() === userId
+          );
+
+          return {
+            _id: job._id,
+            jobTitle: job.jobTitle,
+            employer: {
+              _id: job.postedBy._id,
+              companyName: job.postedBy.companyName,
+              email: job.postedBy.email,
+              companyLogo: job.postedBy.companyLogo,
+            },
+            applicationStatus: applicant ? applicant.status : "Pending",
+            appliedOn: applicant ? applicant.appliedOn : job.createdAt,
+          };
+        } catch (transformError) {
+          console.error(`Error transforming job ${job._id}:`, transformError);
+          return null;
+        }
+      })
+      .filter((job) => job !== null); // Remove null entries
 
     res.json({
       success: true,
