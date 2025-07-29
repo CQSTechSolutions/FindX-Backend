@@ -294,57 +294,64 @@ You received this email because this job matches your profile and preferences.
                 color: #333;
                 max-width: 650px;
                 margin: 0 auto;
-                padding: 20px;
+                padding: 0;
                 background-color: #f8fafc;
             }
             .container {
                 background: white;
                 border-radius: 16px;
-                padding: 40px;
-                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+                padding: 24px 8vw;
+                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
                 border: 1px solid #e5e7eb;
+                margin: 16px auto;
+                max-width: 600px;
             }
             .header {
                 text-align: center;
                 border-bottom: 3px solid #10B981;
-                padding-bottom: 25px;
-                margin-bottom: 35px;
+                padding-bottom: 18px;
+                margin-bottom: 24px;
                 position: relative;
             }
             .logo {
                 font-size: 32px;
                 font-weight: bold;
                 color: #10B981;
-                margin-bottom: 15px;
+                margin-bottom: 10px;
                 text-shadow: 0 2px 4px rgba(16, 185, 129, 0.1);
-            }
-            .match-badge {
-                background: linear-gradient(135deg, #10B981, #059669);
-                color: white;
-                padding: 10px 20px;
-                border-radius: 25px;
-                font-size: 14px;
-                font-weight: 600;
-                display: inline-block;
-                margin-bottom: 20px;
-                box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
             }
             .company-section {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                margin-bottom: 25px;
-                padding: 20px;
+                margin-bottom: 18px;
+                padding: 16px;
                 background: linear-gradient(135deg, #F0FDF4, #DCFCE7);
                 border-radius: 12px;
                 border: 1px solid #BBF7D0;
             }
             .company-logo {
-                width: 60px;
-                height: 60px;
+                width: 56px;
+                height: 56px;
                 border-radius: 12px;
                 margin-right: 15px;
                 object-fit: cover;
+                border: 2px solid #10B981;
+                background: #e5e7eb;
+                display: inline-block;
+            }
+            .company-logo-fallback {
+                width: 56px;
+                height: 56px;
+                border-radius: 12px;
+                margin-right: 15px;
+                background: #10B981;
+                color: #fff;
+                font-size: 24px;
+                font-weight: bold;
+                display: flex;
+                align-items: center;
+                justify-content: center;
                 border: 2px solid #10B981;
             }
             .company-info h3 {
@@ -359,44 +366,44 @@ You received this email because this job matches your profile and preferences.
                 font-size: 14px;
             }
             .job-title {
-                font-size: 24px;
+                font-size: 22px;
                 font-weight: bold;
                 color: #1F2937;
-                margin-bottom: 25px;
+                margin-bottom: 18px;
                 text-align: center;
                 background: linear-gradient(135deg, #F3F4F6, #E5E7EB);
-                padding: 20px;
+                padding: 14px;
                 border-radius: 12px;
                 border-left: 5px solid #10B981;
-                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
             }
             .job-description {
                 background: #F9FAFB;
-                padding: 20px;
+                padding: 16px;
                 border-radius: 10px;
-                margin: 20px 0;
+                margin: 16px 0;
                 border-left: 4px solid #D1D5DB;
                 font-style: italic;
                 color: #6B7280;
             }
             .job-details {
                 background: linear-gradient(135deg, #F9FAFB, #F3F4F6);
-                padding: 25px;
+                padding: 18px;
                 border-radius: 12px;
-                margin: 25px 0;
+                margin: 18px 0;
                 border: 1px solid #E5E7EB;
             }
             .detail-row {
                 display: flex;
-                margin-bottom: 15px;
+                margin-bottom: 10px;
                 align-items: center;
-                padding: 8px 0;
+                padding: 6px 0;
             }
             .detail-label {
                 font-weight: 700;
                 color: #374151;
-                min-width: 140px;
-                margin-right: 20px;
+                min-width: 120px;
+                margin-right: 16px;
                 font-size: 15px;
             }
             .detail-value {
@@ -407,15 +414,15 @@ You received this email because this job matches your profile and preferences.
             }
             .skills-section {
                 background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
-                padding: 20px;
+                padding: 14px;
                 border-radius: 10px;
-                margin: 20px 0;
+                margin: 14px 0;
                 border: 1px solid #BFDBFE;
             }
             .skills-title {
                 font-weight: 700;
                 color: #1E40AF;
-                margin-bottom: 10px;
+                margin-bottom: 8px;
                 font-size: 16px;
             }
             .skills-list {
@@ -424,8 +431,8 @@ You received this email because this job matches your profile and preferences.
             }
             .cta-section {
                 text-align: center;
-                margin: 30px 0;
-                padding: 25px;
+                margin: 20px 0;
+                padding: 18px;
                 background: linear-gradient(135deg, #F0FDF4, #DCFCE7);
                 border-radius: 12px;
                 border: 1px solid #BBF7D0;
@@ -434,7 +441,7 @@ You received this email because this job matches your profile and preferences.
                 display: inline-block;
                 background: linear-gradient(135deg, #10B981, #059669);
                 color: white;
-                padding: 16px 32px;
+                padding: 14px 28px;
                 text-decoration: none;
                 border-radius: 8px;
                 font-weight: 700;
@@ -449,14 +456,14 @@ You received this email because this job matches your profile and preferences.
                 box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
             }
             .footer {
-                margin-top: 35px;
-                padding-top: 25px;
+                margin-top: 24px;
+                padding-top: 18px;
                 border-top: 2px solid #E5E7EB;
                 font-size: 14px;
                 color: #6B7280;
                 text-align: center;
                 background: #F9FAFB;
-                padding: 20px;
+                padding: 14px;
                 border-radius: 10px;
             }
             .footer p {
@@ -464,15 +471,28 @@ You received this email because this job matches your profile and preferences.
             }
             .highlight {
                 background: linear-gradient(135deg, #FEF3C7, #FDE68A);
-                padding: 15px;
+                padding: 10px;
                 border-radius: 8px;
                 border-left: 4px solid #F59E0B;
-                margin: 20px 0;
+                margin: 14px 0;
             }
             .highlight p {
                 margin: 0;
                 color: #92400E;
                 font-weight: 600;
+            }
+            @media (max-width: 600px) {
+                .container {
+                    padding: 8px 2vw;
+                }
+                .company-section {
+                    flex-direction: column;
+                    align-items: flex-start;
+                }
+                .company-logo, .company-logo-fallback {
+                    margin-right: 0;
+                    margin-bottom: 10px;
+                }
             }
         </style>
     </head>
@@ -482,46 +502,40 @@ You received this email because this job matches your profile and preferences.
                 <div class="logo">FindX</div>
                 <div class="match-badge">🎯 Perfect Match Alert</div>
             </div>
-            
-            ${
-              companyLogo
-                ? `
             <div class="company-section">
-                <img src="${companyLogo}" alt="${companyName}" class="company-logo" onerror="this.style.display='none'">
+                <!-- Company Logo with fallback -->
+                ${
+                  companyLogo
+                    ? `
+                  <img src="${companyLogo}" alt="${companyName}" class="company-logo" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                  <span class="company-logo-fallback" style="display:none;">${
+                    companyName ? companyName.charAt(0) : "F"
+                  }</span>
+                `
+                    : `
+                  <span class="company-logo-fallback">${
+                    companyName ? companyName.charAt(0) : "F"
+                  }</span>
+                `
+                }
                 <div class="company-info">
                     <h3>${companyName}</h3>
                     ${companyIndustry ? `<p>${companyIndustry}</p>` : ""}
                     ${companyWebsite ? `<p>${companyWebsite}</p>` : ""}
                 </div>
             </div>
-            `
-                : `
-            <div class="company-section">
-                <div class="company-info">
-                    <h3>${companyName}</h3>
-                    ${companyIndustry ? `<p>${companyIndustry}</p>` : ""}
-                </div>
-            </div>
-            `
-            }
-            
             <div class="job-title">"${exactJobTitle}"</div>
-            
             <div class="highlight">
                 <p>🎯 This job perfectly matches your profile and preferences!</p>
             </div>
-            
             ${
               truncatedDescription !== "No description available"
-                ? `
-            <div class="job-description">
-                <strong>Job Description:</strong><br>
-                ${truncatedDescription}
-            </div>
-            `
+                ? `<div class="job-description">
+                    <strong>Job Description:</strong><br>
+                    ${truncatedDescription}
+                </div>`
                 : ""
             }
-            
             <div class="job-details">
                 <div class="detail-row">
                     <span class="detail-label">🏢 Company:</span>
@@ -544,12 +558,10 @@ You received this email because this job matches your profile and preferences.
                     <span class="detail-value">${salaryRange}</span>
                 </div>
             </div>
-            
             <div class="skills-section">
                 <div class="skills-title">🔧 Required Skills:</div>
                 <div class="skills-list">${jobSkills}</div>
             </div>
-            
             <div class="cta-section">
                 <h3 style="margin: 0 0 15px 0; color: #065F46;">Ready to Apply?</h3>
                 <a href="${
@@ -561,7 +573,6 @@ You received this email because this job matches your profile and preferences.
                     Don't miss this opportunity - apply today!
                 </p>
             </div>
-            
             <div class="footer">
                 <p><strong>Why you received this email:</strong> This job matches your profile and preferences.</p>
                 <p>© 2024 FindX. All rights reserved.</p>
