@@ -188,11 +188,11 @@ const findSimilarUsers = async (jobData, maxUsers = 500) => {
 
     // Get top matches for different purposes
     const topMatchesForEmail = prepareUserMatches(
-      usersWithMatchingDomain.slice(0, 100),
+      usersWithMatchingDomain.slice(0, 1000),
       "domain_match"
     );
     const topMatchesForNotification = prepareUserMatches(
-      usersWithSkillsMatch.slice(0, 50),
+      usersWithSkillsMatch.slice(0, 1000),
       "skills_match"
     );
     const perfectMatchesForBoost = prepareUserMatches(
