@@ -430,84 +430,177 @@ export const createJob = async (req, res, next) => {
     // console.log(userMatches.topMatchesForNotification[0].user);
     // console.log(userMatches.topMatchesForNotification[0].profileAnalysis);
 
-    const emailMatches = [
-      ...userMatches.topMatchesForEmail,
-      ...userMatches.topMatchesForNotification,
-    ];
-
-    // Use Set to store unique email addresses
-    const userEmailsSet = new Set(
-      emailMatches.map((match) => match.user.email)
-    );
-
-    // Convert Set back to array if needed
-    const userEmails = Array.from(userEmailsSet);
-
-    console.log("Unique Matching User Emails:", userEmails);
-
-    // Send job alert emails to matched users (only if not created via payment)
-    if (!jobData.skipEmailAlerts && userEmails.length > 0) {
-      console.log(
-        `📧 Sending BCC job alert emails to ${userEmails.length} users for job: ${jobData.jobTitle}`
-      );
-
-      const emailResult = await sendJobAlertEmails(job, userEmails);
-
-      console.log(
-        `✅ BCC emails sent successfully: ${emailResult.sentCount}/${emailResult.totalCount} recipients`
-      );
-    } else if (jobData.skipEmailAlerts) {
-      console.log(
-        `⏭️ Skipping email alerts for job: ${jobData.jobTitle} (created via payment flow)`
-      );
-    } else {
-      console.warn("⚠️ No user emails found to send job alerts.");
-    }
+    console.log("📊 User matching results:", {
+      topMatchesForEmail: userMatches.topMatchesForEmail?.length || 0,
+      topMatchesForNotification:
+        userMatches.topMatchesForNotification?.length || 0,
+      perfectMatchesForBoost: userMatches.perfectMatchesForBoost?.length || 0,
+    });
 
     // Create notifications for matched users
-    if (userMatches.topMatchesForNotification && userMatches.topMatchesForNotification.length > 0) {
+    const maxNumberForNotifications = jobData.maxNumberForNotifications || 0;
+    const maxNumberForEmails = jobData.maxNumberForEmails || 0;
+
+    console.log("🔔 ===== NOTIFICATION & EMAIL ANALYSIS =====");
+    console.log(
+      `📊 Frontend Limits - Notifications: ${maxNumberForNotifications}, Emails: ${maxNumberForEmails}`
+    );
+    console.log(
+      `📋 Available Candidates - Notifications: ${
+        userMatches.topMatchesForNotification?.length || 0
+      }, Emails: ${userMatches.topMatchesForEmail?.length || 0}`
+    );
+
+    // Handle notifications using topMatchesForNotification array
+    if (
+      userMatches.topMatchesForNotification &&
+      userMatches.topMatchesForNotification.length > 0 &&
+      maxNumberForNotifications > 0
+    ) {
       console.log(
-        `🔔 Creating notifications for ${userMatches.topMatchesForNotification.length} users for job: ${jobData.jobTitle}`
+        `🔔 Processing notifications for ${userMatches.topMatchesForNotification.length} candidates`
       );
 
-      const notificationPromises = userMatches.topMatchesForNotification.map(async (match) => {
+      // Limit notifications based on frontend selection
+      let usersForNotifications = userMatches.topMatchesForNotification;
+      if (usersForNotifications.length > maxNumberForNotifications) {
+        usersForNotifications = usersForNotifications.slice(
+          0,
+          maxNumberForNotifications
+        );
+        console.log(
+          `📋 Limited notifications to ${maxNumberForNotifications} users out of ${userMatches.topMatchesForNotification.length} available candidates`
+        );
+      } else {
+        console.log(
+          `📋 Using all ${usersForNotifications.length} available candidates for notifications`
+        );
+      }
+
+      const notificationPromises = usersForNotifications.map(async (match) => {
         try {
           console.log(`📝 Creating notification for user: ${match.user._id}`);
           const notificationData = {
             userId: match.user._id,
-            type: 'job_match',
-            title: 'New Job Match',
+            type: "job_match",
+            title: "New Job Match",
             message: `A new ${jobData.jobTitle} position matching your skills has been posted.`,
-            priority: 'medium',
+            priority: "medium",
             metadata: {
               jobId: job._id,
               jobTitle: jobData.jobTitle,
               employerId: jobData.postedBy,
-              matchScore: match.profileAnalysis?.overallScore || 0
-            }
+              matchScore: match.profileAnalysis?.overallScore || 0,
+            },
           };
 
-          console.log(`📋 Notification data:`, notificationData);
-          const createdNotification = await createNotification(notificationData);
-          console.log(`✅ Notification created successfully: ${createdNotification._id}`);
+          const createdNotification = await createNotification(
+            notificationData
+          );
+          console.log(
+            `✅ Notification created successfully: ${createdNotification._id}`
+          );
           return { success: true, userId: match.user._id };
         } catch (error) {
-          console.error(`❌ Failed to create notification for user ${match.user._id}:`, error);
-          return { success: false, userId: match.user._id, error: error.message };
+          console.error(
+            `❌ Failed to create notification for user ${match.user._id}:`,
+            error
+          );
+          return {
+            success: false,
+            userId: match.user._id,
+            error: error.message,
+          };
         }
       });
 
-      const notificationResults = await Promise.allSettled(notificationPromises);
-      const successfulNotifications = notificationResults.filter(result => 
-        result.status === 'fulfilled' && result.value.success
+      const notificationResults = await Promise.allSettled(
+        notificationPromises
+      );
+      const successfulNotifications = notificationResults.filter(
+        (result) => result.status === "fulfilled" && result.value.success
       ).length;
 
       console.log(
-        `✅ Notifications created successfully: ${successfulNotifications}/${userMatches.topMatchesForNotification.length} users`
+        `✅ Notifications created successfully: ${successfulNotifications}/${usersForNotifications.length} users`
       );
     } else {
-      console.log("ℹ️ No users found for notifications.");
+      console.log(
+        "ℹ️ No notifications to send - either no candidates or maxNumberForNotifications is 0"
+      );
     }
+
+    // Handle emails using topMatchesForEmail array (separate from notifications)
+    if (
+      userMatches.topMatchesForEmail &&
+      userMatches.topMatchesForEmail.length > 0 &&
+      maxNumberForEmails > 0
+    ) {
+      console.log(
+        `📧 Processing emails for ${userMatches.topMatchesForEmail.length} candidates`
+      );
+
+      // Limit emails based on frontend selection
+      let usersForEmails = userMatches.topMatchesForEmail;
+      if (usersForEmails.length > maxNumberForEmails) {
+        usersForEmails = usersForEmails.slice(0, maxNumberForEmails);
+        console.log(
+          `📧 Limited emails to ${maxNumberForEmails} users out of ${userMatches.topMatchesForEmail.length} available candidates`
+        );
+      } else {
+        console.log(
+          `📧 Using all ${usersForEmails.length} available candidates for emails`
+        );
+      }
+
+      try {
+        console.log(`📧 Sending emails to ${usersForEmails.length} users`);
+        const userEmails = usersForEmails
+          .map((match) => match.user.email)
+          .filter((email) => email);
+
+        // Use the existing email service with the limited count
+        const emailResult = await sendJobAlertEmails(
+          job,
+          userEmails,
+          maxNumberForEmails
+        );
+        
+        if (emailResult.success) {
+          console.log(
+            `✅ Emails sent successfully: ${emailResult.sentCount}/${emailResult.totalCount} users`
+          );
+          if (emailResult.batchErrors && emailResult.batchErrors.length > 0) {
+            console.log(`⚠️ Some batches failed: ${emailResult.batchErrors.length} errors`);
+          }
+        } else {
+          console.error(`❌ Email sending failed: ${emailResult.error}`);
+        }
+      } catch (emailError) {
+        console.error(`❌ Failed to send emails:`, emailError);
+      }
+    } else {
+      console.log(
+        "ℹ️ No emails to send - either no candidates or maxNumberForEmails is 0"
+      );
+    }
+
+    // Log summary of what was sent
+    console.log("📊 ===== SUMMARY =====");
+    console.log(
+      `🔔 Notifications: ${
+        maxNumberForNotifications > 0 ? "SENT" : "NOT SENT"
+      } (Limit: ${maxNumberForNotifications})`
+    );
+    console.log(
+      `📧 Emails: ${
+        maxNumberForEmails > 0 ? "SENT" : "NOT SENT"
+      } (Limit: ${maxNumberForEmails})`
+    );
+    console.log(
+      `🎯 Different candidate pools used for notifications and emails`
+    );
+    console.log("✅ ===== NOTIFICATION & EMAIL ANALYSIS COMPLETE =====");
 
     res.status(201).json({
       success: true,

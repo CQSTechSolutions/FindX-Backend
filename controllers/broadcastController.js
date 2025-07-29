@@ -82,6 +82,29 @@ export const sendJobAlertEmails = async (
   maxEmails = null
 ) => {
   try {
+    // Security validations
+    if (!jobData || !userEmails || !Array.isArray(userEmails)) {
+      console.error("❌ Invalid parameters provided to sendJobAlertEmails");
+      return {
+        success: false,
+        error: "Invalid parameters provided",
+        sentCount: 0,
+        totalCount: 0
+      };
+    }
+
+    // Rate limiting check - prevent sending too many emails at once
+    const MAX_EMAILS_PER_REQUEST = 1000; // Maximum emails per request
+    if (userEmails.length > MAX_EMAILS_PER_REQUEST) {
+      console.error(`❌ Too many emails requested: ${userEmails.length} (max: ${MAX_EMAILS_PER_REQUEST})`);
+      return {
+        success: false,
+        error: `Too many emails requested. Maximum allowed: ${MAX_EMAILS_PER_REQUEST}`,
+        sentCount: 0,
+        totalCount: userEmails.length
+      };
+    }
+
     console.log(
       "📧 Sending job alert emails to",
       userEmails.length,
@@ -90,7 +113,7 @@ export const sendJobAlertEmails = async (
 
     if (userEmails.length === 0) {
       console.log("⚠️ No matched users to send emails to");
-      return { success: true, sentCount: 0 };
+      return { success: true, sentCount: 0, totalCount: 0 };
     }
 
     // Extract emails for BCC
@@ -120,6 +143,17 @@ export const sendJobAlertEmails = async (
       } catch (error) {
         console.error("❌ Error fetching employer data:", error);
       }
+    }
+
+    // Validate required job data
+    if (!jobData.jobTitle || !jobData._id) {
+      console.error("❌ Missing required job data (jobTitle or _id)");
+      return {
+        success: false,
+        error: "Missing required job information",
+        sentCount: 0,
+        totalCount: validUserEmails.length
+      };
     }
 
     // Prepare job alert email content with exact job title
@@ -182,6 +216,21 @@ You received this email because this job matches your profile and preferences.
       (email) => email && email.trim() !== ""
     );
 
+    // Email validation function
+    const isValidEmail = (email) => {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      return emailRegex.test(email) && email.length <= 254; // RFC 5321 limit
+    };
+
+    // Filter out invalid email addresses
+    const originalCount = validUserEmails.length;
+    validUserEmails = validUserEmails.filter(email => isValidEmail(email));
+    const invalidEmails = originalCount - validUserEmails.length;
+    
+    if (invalidEmails > 0) {
+      console.log(`⚠️ Filtered out ${invalidEmails} invalid email addresses`);
+    }
+
     // Limit emails if maxEmails parameter is provided
     if (maxEmails && maxEmails > 0 && validUserEmails.length > maxEmails) {
       console.log(
@@ -197,6 +246,31 @@ You received this email because this job matches your profile and preferences.
 
     // Create transporter
     const transporter = createTransporter();
+
+    // Validate SMTP configuration
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      console.error("❌ SMTP configuration missing");
+      return {
+        success: false,
+        error: "Email service not configured",
+        sentCount: 0,
+        totalCount: validUserEmails.length
+      };
+    }
+
+    // Test SMTP connection before sending
+    try {
+      await transporter.verify();
+      console.log("✅ SMTP connection verified successfully");
+    } catch (verifyError) {
+      console.error("❌ SMTP connection failed:", verifyError);
+      return {
+        success: false,
+        error: "Email service connection failed",
+        sentCount: 0,
+        totalCount: validUserEmails.length
+      };
+    }
 
     // Get message type emoji and styling for job alerts
     const typeInfo = {
@@ -542,37 +616,83 @@ FindX - Your Gateway to Career Success
     `;
 
     // Email options using BCC (efficient approach)
-    const mailOptions = {
-      from: {
-        name: "FindX Job Alerts",
-        address: process.env.SMTP_USER,
-      },
-      to: process.env.SMTP_USER, // Send to yourself as the main recipient
-      bcc: validUserEmails, // All matched users in BCC to protect privacy
-      subject: title,
-      text: textContent,
-      html: htmlTemplate,
-      // Add headers to prevent replies going to all users
-      headers: {
-        "Reply-To": process.env.SMTP_USER,
-        "List-Unsubscribe": `<mailto:unsubscribe@findx.com>`,
-      },
-    };
+    const BCC_LIMIT = 500; // BCC limit per email
+    const totalEmails = validUserEmails.length;
+    const batches = Math.ceil(totalEmails / BCC_LIMIT);
+    
+    console.log(`📧 Sending emails in ${batches} batch(es) of max ${BCC_LIMIT} recipients each`);
+    console.log(`📊 Total recipients: ${totalEmails}, Batches needed: ${batches}`);
 
-    // Send email using BCC (single email to all users)
-    await transporter.sendMail(mailOptions);
+    let totalSentCount = 0;
+    let failedEmails = [];
+    let batchErrors = [];
 
-    console.log(
-      `📧 Job alert email sent to ${validUserEmails.length} users via BCC`
-    );
-    console.log(`Subject: ${title}`);
-    console.log(`Sent at: ${new Date().toISOString()}`);
+    // Send emails in batches
+    for (let batchIndex = 0; batchIndex < batches; batchIndex++) {
+      const startIndex = batchIndex * BCC_LIMIT;
+      const endIndex = Math.min(startIndex + BCC_LIMIT, totalEmails);
+      const batchEmails = validUserEmails.slice(startIndex, endIndex);
+      
+      console.log(`📧 Sending batch ${batchIndex + 1}/${batches} with ${batchEmails.length} recipients`);
+
+      try {
+        const mailOptions = {
+          from: {
+            name: "FindX Job Alerts",
+            address: process.env.SMTP_USER,
+          },
+          to: process.env.SMTP_USER, // Send to yourself as the main recipient
+          bcc: batchEmails, // Batch of users in BCC
+          subject: title,
+          text: textContent,
+          html: htmlTemplate,
+          // Add headers to prevent replies going to all users
+          headers: {
+            "Reply-To": process.env.SMTP_USER,
+            "List-Unsubscribe": `<mailto:unsubscribe@findx.com>`,
+          },
+        };
+
+        // Send email using BCC for this batch
+        await transporter.sendMail(mailOptions);
+        
+        totalSentCount += batchEmails.length;
+        console.log(`✅ Batch ${batchIndex + 1}/${batches} sent successfully to ${batchEmails.length} recipients`);
+        
+        // Add a small delay between batches to avoid rate limiting
+        if (batchIndex < batches - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+        }
+        
+      } catch (batchError) {
+        console.error(`❌ Error sending batch ${batchIndex + 1}/${batches}:`, batchError);
+        batchErrors.push({
+          batchIndex: batchIndex + 1,
+          error: batchError.message,
+          recipients: batchEmails.length
+        });
+        failedEmails.push(...batchEmails);
+      }
+    }
+
+    console.log(`📧 Email sending complete:`);
+    console.log(`✅ Successfully sent: ${totalSentCount}/${totalEmails} emails`);
+    console.log(`❌ Failed batches: ${batchErrors.length}`);
+    console.log(`📊 Subject: ${title}`);
+    console.log(`📅 Sent at: ${new Date().toISOString()}`);
+
+    if (batchErrors.length > 0) {
+      console.log(`⚠️ Batch errors:`, batchErrors);
+    }
 
     return {
-      success: true,
-      sentCount: validUserEmails.length,
-      totalCount: validUserEmails.length,
-      failedEmails: [], // BCC approach doesn't provide individual failure tracking
+      success: totalSentCount > 0,
+      sentCount: totalSentCount,
+      totalCount: totalEmails,
+      failedEmails: failedEmails,
+      batchErrors: batchErrors,
+      batchesSent: batches - batchErrors.length,
+      totalBatches: batches
     };
   } catch (error) {
     console.error("❌ Error sending job alert emails:", error);
