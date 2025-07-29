@@ -1740,7 +1740,7 @@ export const getJobRecommendations = async (req, res, next) => {
       createdAt: { $gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) },
     })
       .select(
-        "jobTitle jobSkills jobKeywords category subcategory workType workspaceOption jobLocation from to currency payType premiumListing immediateStart postedBy createdAt"
+        "jobTitle jobSkills jobKeywords category subcategory workType workspaceOption jobLocation from to currency payType premiumListing immediateStart postedBy createdAt companyLogo"
       )
       .populate("postedBy", "companyName companyLogo")
       .lean(); // Use lean() for better performance

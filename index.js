@@ -24,10 +24,20 @@ const app = express();
 app.use(
   cors({
     origin: "*",
-    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
+    credentials: true
   })
 );
 app.use(express.json());
+
+// Add security headers
+app.use((req, res, next) => {
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    next();
+});
 
 // MongoDB Connection with enhanced error handling
 const connectDB = async () => {
@@ -74,6 +84,39 @@ app.get("/api/health", (req, res) => {
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || "development",
   });
+});
+
+// Add root route
+app.get('/', (req, res) => {
+    res.json({
+        success: true,
+        message: 'FindX API Server is running',
+        version: '1.0.0',
+        timestamp: new Date().toISOString(),
+        endpoints: {
+            jobs: '/api/jobs',
+            auth: '/api/auth',
+            employer: '/api/employer',
+            notifications: '/api/notifications'
+        }
+    });
+});
+
+// Add API base route  
+app.get('/api', (req, res) => {
+    res.json({
+        success: true,
+        message: 'FindX API Base',
+        version: '1.0.0',
+        availableRoutes: [
+            'GET /api/jobs - Get all jobs',
+            'POST /api/auth/signup - User signup',
+            'POST /api/auth/login - User login', 
+            'POST /api/employer/createAccount - Employer signup',
+            'POST /api/employer/login - Employer login',
+            'GET /api/notifications - Get notifications (auth required)'
+        ]
+    });
 });
 
 // Routes
