@@ -121,11 +121,17 @@ notificationSchema.statics.getUserNotifications = async function(userId, page = 
         const skip = (page - 1) * limit;
         
         const notifications = await this.find({ userId })
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(limit)
-            .populate('metadata.jobId', 'jobTitle companyName')
-            .populate('metadata.employerId', 'companyName');
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .populate(
+            "metadata.jobId",
+            "jobTitle companyName jobLocation salaryRange workType"
+          )
+          .populate(
+            "metadata.employerId",
+            "companyName companyIndustry companyWebsite"
+          );
         
         const total = await this.countDocuments({ userId });
         

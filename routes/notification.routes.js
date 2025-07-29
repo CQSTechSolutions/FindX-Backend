@@ -31,39 +31,45 @@ router.post('/cleanup', cleanupExpiredNotifications);
 
 // POST /api/notifications/test - Create a test notification (for debugging)
 router.post('/test', async (req, res) => {
-    try {
-        const { userId } = req.body;
-        
-        if (!userId) {
-            return res.status(400).json({
-                success: false,
-                message: 'User ID is required'
-            });
-        }
+  try {
+    const { userId, jobId, employerId } = req.body;
 
-        const notificationData = {
-            userId,
-            type: 'general',
-            title: 'Test Notification',
-            message: 'This is a test notification to verify the system is working.',
-            priority: 'medium'
-        };
-
-        const notification = await createNotification(notificationData);
-        
-        res.json({
-            success: true,
-            message: 'Test notification created successfully',
-            notification
-        });
-    } catch (error) {
-        console.error('Error creating test notification:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to create test notification',
-            error: error.message
-        });
+    if (!userId || !jobId) {
+      return res.status(400).json({
+        success: false,
+        message: "userId and jobId are required",
+      });
     }
+
+    const notificationData = {
+      userId,
+      type: "job_match",
+      title: "Test Job Match",
+      message: "This is a test notification for job matching.",
+      priority: "medium",
+      metadata: {
+        jobId,
+        jobTitle: "Test Job Title",
+        employerId: employerId || null,
+        matchScore: 85,
+      },
+    };
+
+    const notification = await createNotification(notificationData);
+
+    res.json({
+      success: true,
+      message: "Test notification created",
+      notification,
+    });
+  } catch (error) {
+    console.error("Error creating test notification:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to create test notification",
+      error: error.message,
+    });
+  }
 });
 
 export default router; 

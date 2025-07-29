@@ -41,6 +41,14 @@ export const getUserNotifications = async (req, res, next) => {
     );
     console.log("✅ Found notifications:", result.notifications.length);
 
+    // Debug: Log first notification structure
+    if (result.notifications.length > 0) {
+      console.log(
+        "🔍 Sample notification structure:",
+        JSON.stringify(result.notifications[0], null, 2)
+      );
+    }
+
     res.json({
       success: true,
       data: result.notifications,
