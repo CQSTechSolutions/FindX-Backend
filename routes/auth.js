@@ -1,30 +1,30 @@
 import express from 'express';
 import {
-    getAllUsers,
-    login,
-    register,
-    resetPassword,
-    verifyOtp,
-    updateUserProfile,
-    getUser,
-    getCurrentUser,
-    updateSavedJobs,
-    updateNotInterestedJobCategories
-} from '../controllers/authController.js';
-import {protect} from "../middleware/auth.js";
+  getAllUsers,
+  getCurrentUser,
+  getUser,
+  login,
+  register,
+  resetPassword,
+  updateNotInterestedJobCategories,
+  updateSavedJobs,
+  updateUserProfile,
+  verifyOtp,
+} from "../controllers/authController.js";
+import { protect } from "../middleware/auth.js";
 
 const router = express.Router();
 
 // Auth routes
-router.post('/register', register);
-router.post('/login', login);
-router.post('/verifyotp', verifyOtp);
-router.post('/resetpassword', resetPassword);
+router.post("/register", register);
+router.post("/login", login);
+router.post("/verifyotp", verifyOtp);
+router.post("/resetpassword", resetPassword);
 
 // User routes
-router.get('/users', protect, getAllUsers);
-router.get('/user/me', protect, getCurrentUser);
-router.get('/user/:id', getUser);
+router.get("/users", protect, getAllUsers);
+router.get("/user/me", protect, getCurrentUser);
+router.get("/user/:id", protect, getUser);
 
 // Generic Update Route
 router.patch('/user/updateUserProfile', protect, updateUserProfile);

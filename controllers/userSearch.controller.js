@@ -127,27 +127,38 @@ export const searchUsers = async (req, res) => {
  */
 export const getUserProfile = async (req, res) => {
     try {
-        const { userId } = req.params;
-        
-        const user = await User.findById(userId)
-            .select('-password -passwordResetOtp -passwordResetExpire -messagesFromEmployer -messagesToEmployer');
-            
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
-        }
-        
-        // Check if the employer has blocked this user
-        const employer = req.employer;
-        const isBlocked = employer.blockedApplicants && employer.blockedApplicants.includes(userId);
-        
-        return res.status(200).json({
-            success: true,
-            user,
-            isBlocked
+      const { userId } = req.params;
+
+      const user = await User.findById(userId).select(
+        "-password -passwordResetOtp -passwordResetExpire -messagesFromEmployer -messagesToEmployer"
+      );
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found",
         });
+      }
+
+      // Check if the employer has blocked this user
+      const employer = req.employer;
+      const isBlocked =
+        employer.blockedApplicants &&
+        employer.blockedApplicants.includes(userId);
+
+      // Remove resumes from user data when showing to employers
+      const userForEmployer = {
+        ...user.toObject(),
+        resumes: [], // Don't show any resumes to employers
+        resume: undefined, // Don't show single resume field to employers
+        cover_letter: undefined, // Don't show cover letter to employers
+      };
+
+      return res.status(200).json({
+        success: true,
+        user: userForEmployer,
+        isBlocked,
+      });
     } catch (error) {
         console.error('Error fetching user profile:', error);
         return res.status(500).json({

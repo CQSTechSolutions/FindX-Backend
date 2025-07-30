@@ -1,8 +1,7 @@
 import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
-import Domain from '../models/Domain.model.js';
-import mongoose from 'mongoose';
-import _ from 'lodash';
+import mongoose from "mongoose";
+import Domain from "../models/Domain.model.js";
+import User from "../models/User.js";
 
 // Register user
 export const register = async (req, res) => {
@@ -13,7 +12,7 @@ export const register = async (req, res) => {
     if (!name || !email || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide name, email and password'
+        message: "Please provide name, email and password",
       });
     }
 
@@ -22,7 +21,7 @@ export const register = async (req, res) => {
     if (existingUser) {
       return res.status(409).json({
         success: false,
-        message: 'User already exists'
+        message: "User already exists",
       });
     }
 
@@ -39,23 +38,25 @@ export const register = async (req, res) => {
     const token = jwt.sign(
       { id: user._id }, // Changed from userId to id for consistency
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRE || '7d' }
+      { expiresIn: process.env.JWT_EXPIRE || "7d" }
     );
 
     // Get user data without sensitive fields
-    const userWithoutPassword = await User.findById(user._id).select('-password -passwordResetOtp -passwordResetExpire');
+    const userWithoutPassword = await User.findById(user._id).select(
+      "-password -passwordResetOtp -passwordResetExpire"
+    );
 
     res.status(201).json({
       success: true,
-      message: 'User registered successfully',
+      message: "User registered successfully",
       token,
-      user: userWithoutPassword
+      user: userWithoutPassword,
     });
   } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ 
+    console.error("Registration error:", error);
+    res.status(500).json({
       success: false,
-      message: 'Error registering user' 
+      message: "Error registering user",
     });
   }
 };
@@ -69,16 +70,16 @@ export const login = async (req, res, next) => {
     if (!email || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide email and password'
+        message: "Please provide email and password",
       });
     }
 
     // Check for user and include password field
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ email }).select("+password");
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'No such user exists'
+        message: "No such user exists",
       });
     }
 
@@ -87,29 +88,28 @@ export const login = async (req, res, next) => {
     if (!isMatch) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid credentials'
+        message: "Invalid credentials",
       });
     }
 
     // Create token with consistent structure
-    const token = jwt.sign(
-      { id: user._id }, 
-      process.env.JWT_SECRET, {
-        expiresIn: process.env.JWT_EXPIRE || '7d'
-      }
-    );
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: process.env.JWT_EXPIRE || "7d",
+    });
 
     // Get complete user data without sensitive fields
-    const userWithoutPassword = await User.findById(user._id).select('-password -passwordResetOtp -passwordResetExpire');
+    const userWithoutPassword = await User.findById(user._id).select(
+      "-password -passwordResetOtp -passwordResetExpire"
+    );
 
     res.json({
       success: true,
-      message: 'Login successful',
+      message: "Login successful",
       token,
-      user: userWithoutPassword
+      user: userWithoutPassword,
     });
   } catch (error) {
-    console.error('Login error:', error);
+    console.error("Login error:", error);
     next(error);
   }
 };
@@ -118,24 +118,25 @@ export const login = async (req, res, next) => {
 export const getCurrentUser = async (req, res, next) => {
   try {
     // req.user is set by the protect middleware
-    const user = await User.findById(req.user._id).select('-password -passwordResetOtp -passwordResetExpire');
-    
+    const user = await User.findById(req.user._id).select(
+      "-password -passwordResetOtp -passwordResetExpire"
+    );
+
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found'
+        message: "User not found",
       });
     }
 
     res.json({
       success: true,
-      user
+      user,
     });
   } catch (error) {
     next(error);
   }
 };
-
 
 export const verifyOtp = async (req, res, next) => {
   try {
@@ -145,19 +146,19 @@ export const verifyOtp = async (req, res, next) => {
     const user = await User.findOne({
       email,
       passwordResetOtp: otp,
-      passwordResetExpire: { $gt: Date.now() }
-    }).select('+passwordResetOtp +passwordResetExpire');
+      passwordResetExpire: { $gt: Date.now() },
+    }).select("+passwordResetOtp +passwordResetExpire");
 
     if (!user) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid or expired OTP'
+        message: "Invalid or expired OTP",
       });
     }
 
     res.json({
       success: true,
-      message: 'OTP verified successfully'
+      message: "OTP verified successfully",
     });
   } catch (error) {
     next(error);
@@ -172,13 +173,13 @@ export const resetPassword = async (req, res, next) => {
     const user = await User.findOne({
       email,
       passwordResetOtp: otp,
-      passwordResetExpire: { $gt: Date.now() }
-    }).select('+passwordResetOtp +passwordResetExpire');
+      passwordResetExpire: { $gt: Date.now() },
+    }).select("+passwordResetOtp +passwordResetExpire");
 
     if (!user) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid or expired OTP'
+        message: "Invalid or expired OTP",
       });
     }
 
@@ -190,13 +191,13 @@ export const resetPassword = async (req, res, next) => {
 
     // Create token
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXPIRE
+      expiresIn: process.env.JWT_EXPIRE,
     });
 
     res.json({
       success: true,
-      message: 'Password reset successful',
-      token
+      message: "Password reset successful",
+      token,
     });
   } catch (error) {
     next(error);
@@ -205,12 +206,14 @@ export const resetPassword = async (req, res, next) => {
 
 export const getAllUsers = async (req, res, next) => {
   try {
-    const users = await User.find().select('-password -passwordResetOtp -passwordResetExpire');
+    const users = await User.find().select(
+      "-password -passwordResetOtp -passwordResetExpire"
+    );
 
     res.json({
       success: true,
       count: users.length,
-      users
+      users,
     });
   } catch (error) {
     next(error);
@@ -223,49 +226,84 @@ export const updateUserProfile = async (req, res, next) => {
     const updates = req.body;
 
     // Debug: Log what we received
-    console.log('[DEBUG] Received update request for user:', userId);
-    console.log('[DEBUG] Update data:', JSON.stringify(updates, null, 2));
+    console.log("[DEBUG] Received update request for user:", userId);
+    console.log("[DEBUG] Update data:", JSON.stringify(updates, null, 2));
 
     // List of allowed fields
     const allowedFields = [
-      'name', 'gender', 'preferred_pronouns', 'nationality', 'resident_country',
-      'known_language', 'preferred_time_zone', 'highest_qualification',
-      'achievements', 'licenses', 'skills_and_capabilities', 'resume', 'resume_downloadble',
-      'cover_letter', 'dream_job_title', 'preferred_job_types',
-      'work_env_preferences', 'relocation', 'personal_branding_statement',
-      'hobbies', 'education', 'emergency_contact', 'social_links',
-      'work_history', 'savedJobs', 'isProfileCompleted', 'appliedJobs', 'notInterestedJobCategories', 'work_domain'
+      "name",
+      "gender",
+      "preferred_pronouns",
+      "nationality",
+      "resident_country",
+      "known_language",
+      "preferred_time_zone",
+      "highest_qualification",
+      "achievements",
+      "licenses",
+      "skills_and_capabilities",
+      "resume",
+      "cover_letter",
+      "dream_job_title",
+      "preferred_job_types",
+      "work_env_preferences",
+      "relocation",
+      "personal_branding_statement",
+      "hobbies",
+      "education",
+      "emergency_contact",
+      "social_links",
+      "work_history",
+      "savedJobs",
+      "isProfileCompleted",
+      "appliedJobs",
+      "notInterestedJobCategories",
+      "work_domain",
     ];
 
     const invalidFields = Object.keys(updates).filter(
-        (key) => !allowedFields.includes(key)
+      (key) => !allowedFields.includes(key)
     );
 
     if (invalidFields.length) {
-      console.log('[DEBUG] Invalid fields detected:', invalidFields);
+      console.log("[DEBUG] Invalid fields detected:", invalidFields);
       return res.status(400).json({
         success: false,
-        message: `Invalid fields in request: ${invalidFields.join(', ')}`
+        message: `Invalid fields in request: ${invalidFields.join(", ")}`,
       });
     }
 
     // Get current user data for logging
-    const currentUser = await User.findById(userId).select('-password -passwordResetOtp -passwordResetExpire');
+    const currentUser = await User.findById(userId).select(
+      "-password -passwordResetOtp -passwordResetExpire"
+    );
     if (!currentUser) {
       return res.status(404).json({
         success: false,
-        message: 'User not found'
+        message: "User not found",
       });
     }
 
-
     // Handle array and object fields specially to avoid merge issues
-    const arrayFields = ['work_history', 'licenses', 'education', 'skills_and_capabilities', 'achievements', 'known_language', 'preferred_job_types', 'work_env_preferences', 'hobbies', 'savedJobs', 'appliedJobs', 'notInterestedJobCategories'];
-    const objectFields = ['relocation', 'emergency_contact', 'social_links'];
+    const arrayFields = [
+      "work_history",
+      "licenses",
+      "education",
+      "skills_and_capabilities",
+      "achievements",
+      "known_language",
+      "preferred_job_types",
+      "work_env_preferences",
+      "hobbies",
+      "savedJobs",
+      "appliedJobs",
+      "notInterestedJobCategories",
+    ];
+    const objectFields = ["relocation", "emergency_contact", "social_links"];
 
     // Prepare update operations
     const updateOps = {};
-    
+
     for (const [key, value] of Object.entries(updates)) {
       if (arrayFields.includes(key)) {
         // For array fields, directly assign the new array
@@ -274,7 +312,10 @@ export const updateUserProfile = async (req, res, next) => {
         // For object fields, replace the entire object instead of merging
         // This prevents issues with nested object updates
         updateOps[key] = value;
-        console.log(`[DEBUG] Will update ${key}:`, JSON.stringify(updateOps[key], null, 2));
+        console.log(
+          `[DEBUG] Will update ${key}:`,
+          JSON.stringify(updateOps[key], null, 2)
+        );
       } else {
         // For simple fields, direct assignment
         updateOps[key] = value;
@@ -287,16 +328,16 @@ export const updateUserProfile = async (req, res, next) => {
       if (!currentUser) {
         return res.status(404).json({
           success: false,
-          message: 'User not found'
+          message: "User not found",
         });
       }
 
       // Validate that the domain is one of the predefined domains
-      const validDomains = Domain.schema.path('name').enumValues;
+      const validDomains = Domain.schema.path("name").enumValues;
       if (!validDomains.includes(updates.work_domain)) {
-        return res.status(400).json({ 
-          message: "Invalid domain", 
-          validDomains: validDomains 
+        return res.status(400).json({
+          message: "Invalid domain",
+          validDomains: validDomains,
         });
       }
 
@@ -320,60 +361,64 @@ export const updateUserProfile = async (req, res, next) => {
     }
 
     // Use findByIdAndUpdate to avoid version conflicts
-    console.log('[DEBUG] Final update operations:', JSON.stringify(updateOps, null, 2));
-    
+    console.log(
+      "[DEBUG] Final update operations:",
+      JSON.stringify(updateOps, null, 2)
+    );
+
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       { $set: updateOps },
-      { 
+      {
         new: true, // Return the updated document
         runValidators: true, // Run schema validations
-        select: '-password -passwordResetOtp -passwordResetExpire' // Exclude sensitive fields
+        select: "-password -passwordResetOtp -passwordResetExpire", // Exclude sensitive fields
       }
     );
 
     if (!updatedUser) {
       return res.status(404).json({
         success: false,
-        message: 'User not found after update'
+        message: "User not found after update",
       });
     }
 
     res.json({
       success: true,
-      message: 'Profile updated successfully',
-      user: updatedUser
+      message: "Profile updated successfully",
+      user: updatedUser,
     });
   } catch (error) {
-    console.error('Error updating user profile:', error);
-    
+    console.error("Error updating user profile:", error);
+
     // Handle specific MongoDB errors
     if (error.code === 11000) {
       return res.status(400).json({
         success: false,
-        message: 'Duplicate value error. Please check your input.'
+        message: "Duplicate value error. Please check your input.",
       });
     }
-    
-    if (error.name === 'ValidationError') {
-      console.error('[DEBUG] Validation error details:', error.message);
-      console.error('[DEBUG] Validation error fields:', error.errors);
+
+    if (error.name === "ValidationError") {
+      console.error("[DEBUG] Validation error details:", error.message);
+      console.error("[DEBUG] Validation error fields:", error.errors);
       return res.status(400).json({
         success: false,
-        message: `Validation error: ${error.message}`
+        message: `Validation error: ${error.message}`,
       });
     }
-    
+
     // Handle version key errors (just in case)
-    if (error.message && error.message.includes('version')) {
-      console.log('[DEBUG] Version conflict detected, retrying...');
+    if (error.message && error.message.includes("version")) {
+      console.log("[DEBUG] Version conflict detected, retrying...");
       // For now, just return a user-friendly message
       return res.status(409).json({
         success: false,
-        message: 'Data was updated by another process. Please refresh and try again.'
+        message:
+          "Data was updated by another process. Please refresh and try again.",
       });
     }
-    
+
     next(error);
   }
 };

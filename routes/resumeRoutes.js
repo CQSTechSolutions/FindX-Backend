@@ -1,19 +1,17 @@
 import express from 'express';
 import multer from 'multer';
-import { 
-    uploadResume, 
-    uploadMultipleResume,
-    deleteResume, 
-    updateResumeVisibility, 
-    testCloudinary,
-    getResumes,
-    deleteResumeById,
-    setPrimaryResume,
-    updateResumeVisibilityById,
-    updateCoverLetter,
-    getCoverLetter
-} from '../controllers/resumeController.js';
-import { protect } from '../middleware/auth.js';
+import {
+  deleteResume,
+  deleteResumeById,
+  getCoverLetter,
+  getResumes,
+  setPrimaryResume,
+  testCloudinary,
+  updateCoverLetter,
+  uploadMultipleResume,
+  uploadResume,
+} from "../controllers/resumeController.js";
+import { protect } from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -21,40 +19,49 @@ const router = express.Router();
 const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
-    // Accept PDF, DOC, and DOCX files
-    const allowedTypes = [
-        'application/pdf',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    ];
-    
-    if (allowedTypes.includes(file.mimetype)) {
-        cb(null, true);
-    } else {
-        cb(new Error('Invalid file type. Only PDF, DOC, and DOCX files are allowed.'), false);
-    }
+  // Accept PDF, DOC, and DOCX files
+  const allowedTypes = [
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ];
+
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(
+      new Error(
+        "Invalid file type. Only PDF, DOC, and DOCX files are allowed."
+      ),
+      false
+    );
+  }
 };
 
 const upload = multer({
-    storage: storage,
-    fileFilter: fileFilter,
-    limits: {
-        fileSize: 10 * 1024 * 1024 // 10MB limit
-    }
+  storage: storage,
+  fileFilter: fileFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
 });
 
 // Routes
 // Single resume routes (for backward compatibility)
-router.post('/upload', protect, upload.single('resume'), uploadResume);
-router.delete('/delete', protect, deleteResume);
-router.patch('/visibility', protect, updateResumeVisibility);
+router.post("/upload", protect, upload.single("resume"), uploadResume);
+router.delete("/delete", protect, deleteResume);
 
 // Multiple resumes routes
-router.post('/upload-multiple', protect, upload.single('resume'), uploadMultipleResume);
-router.get('/list', protect, getResumes);
-router.delete('/delete/:resumeId', protect, deleteResumeById);
-router.patch('/set-primary/:resumeId', protect, setPrimaryResume);
-router.patch('/visibility/:resumeId', protect, updateResumeVisibilityById);
+router.post(
+  "/upload-multiple",
+  protect,
+  upload.single("resume"),
+  uploadMultipleResume
+);
+router.get("/list", protect, getResumes);
+router.delete("/delete/:resumeId", protect, deleteResumeById);
+router.patch("/set-primary/:resumeId", protect, setPrimaryResume);
+
 
 // Cover letter routes
 router.get('/cover-letter/:resumeId', protect, getCoverLetter);
