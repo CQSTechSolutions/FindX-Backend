@@ -365,6 +365,14 @@ export const confirmPaymentSuccess = async (req, res) => {
         paymentRecord.employerId
       ) {
         try {
+          // Debug job data before creating job
+          console.log("🔍 Payment controller - Job data before creation:", {
+            hasJobBanner: !!paymentRecord.jobData?.jobBanner,
+            jobBannerValue: paymentRecord.jobData?.jobBanner,
+            jobBannerType: typeof paymentRecord.jobData?.jobBanner,
+            jobDataKeys: Object.keys(paymentRecord.jobData || {}),
+          });
+
           // Prepare a mock request/response for createJob
           const mockReq = {
             body: {
@@ -390,6 +398,15 @@ export const confirmPaymentSuccess = async (req, res) => {
           await createJob(mockReq, mockRes, (error) => {
             if (error) throw error;
           });
+
+          // Debug created job
+          console.log("✅ Payment controller - Job created successfully:", {
+            jobId: createdJob._id,
+            jobTitle: createdJob.jobTitle,
+            jobBanner: createdJob.jobBanner,
+            hasJobBanner: !!createdJob.jobBanner,
+          });
+
           // Update payment record with job ID
           paymentRecord.jobId = createdJob._id;
           await paymentRecord.save();

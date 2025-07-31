@@ -263,6 +263,21 @@ export const createJob = async (req, res, next) => {
       }
     }
 
+    // Handle empty jobBanner - if null, undefined, empty string, or only whitespace, set default banner
+    console.log("🔍 Job banner before processing:", {
+      hasJobBanner: !!jobData.jobBanner,
+      jobBannerValue: jobData.jobBanner,
+      jobBannerType: typeof jobData.jobBanner,
+    });
+
+    if (!jobData.jobBanner || jobData.jobBanner.trim() === "") {
+      console.log("🔄 Setting default jobBanner URL");
+      jobData.jobBanner =
+        "https://cdn.pixabay.com/photo/2016/12/05/09/36/application-1883452_1280.jpg";
+    } else {
+      console.log("✅ Keeping provided jobBanner:", jobData.jobBanner);
+    }
+
     // Process array fields to ensure they are properly formatted
     const processArrayField = (fieldName, data) => {
       if (data[fieldName]) {
@@ -411,6 +426,7 @@ export const createJob = async (req, res, next) => {
     console.log("Created job details:", {
       jobId: job._id,
       jobTitle: job.jobTitle,
+      jobBanner: job.jobBanner,
       hasApplicationQuestions: !!(
         job.applicationQuestions && job.applicationQuestions.length > 0
       ),
@@ -565,13 +581,15 @@ export const createJob = async (req, res, next) => {
           userEmails,
           maxNumberForEmails
         );
-        
+
         if (emailResult.success) {
           console.log(
             `✅ Emails sent successfully: ${emailResult.sentCount}/${emailResult.totalCount} users`
           );
           if (emailResult.batchErrors && emailResult.batchErrors.length > 0) {
-            console.log(`⚠️ Some batches failed: ${emailResult.batchErrors.length} errors`);
+            console.log(
+              `⚠️ Some batches failed: ${emailResult.batchErrors.length} errors`
+            );
           }
         } else {
           console.error(`❌ Email sending failed: ${emailResult.error}`);
@@ -720,6 +738,21 @@ export const updateJob = async (req, res, next) => {
         success: false,
         message: "You are not authorized to update this job",
       });
+    }
+
+    // Handle empty jobBanner - if null, undefined, empty string, or only whitespace, set default banner
+    console.log("🔍 Update - Job banner before processing:", {
+      hasJobBanner: !!jobData.jobBanner,
+      jobBannerValue: jobData.jobBanner,
+      jobBannerType: typeof jobData.jobBanner,
+    });
+
+    if (!jobData.jobBanner || jobData.jobBanner.trim() === "") {
+      console.log("🔄 Update - Setting default jobBanner URL");
+      jobData.jobBanner =
+        "https://cdn.pixabay.com/photo/2016/12/05/09/36/application-1883452_1280.jpg";
+    } else {
+      console.log("✅ Update - Keeping provided jobBanner:", jobData.jobBanner);
     }
 
     // Process array fields to ensure they are properly formatted (same logic as createJob)
