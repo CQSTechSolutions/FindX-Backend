@@ -1283,20 +1283,25 @@ export const updateApplicationStatus = async (req, res, next) => {
     try {
       let notificationMessage = "";
       let notificationType = "application_update";
+      let notificationTitle = "Application Status Update";
 
       switch (status) {
         case "Interview":
           notificationMessage = `Your application for ${job.jobTitle} has been shortlisted for an interview!`;
           notificationType = "interview_invitation";
+          notificationTitle = "Interview Invitation!";
           break;
         case "Rejected":
           notificationMessage = `Your application for ${job.jobTitle} was not selected this time. Keep applying!`;
+          notificationTitle = "Application Rejected";
           break;
         case "Hired":
           notificationMessage = `Congratulations! You've been hired for the ${job.jobTitle} position!`;
+          notificationTitle = "Application Accepted!";
           break;
         case "Blocked":
           notificationMessage = `Your application for ${job.jobTitle} has been blocked.`;
+          notificationTitle = "Application Blocked";
           break;
         default:
           notificationMessage = `Your application status for ${job.jobTitle} has been updated to ${status}.`;
@@ -1305,7 +1310,7 @@ export const updateApplicationStatus = async (req, res, next) => {
       const notificationData = {
         userId: application.user, // Applicant's user ID
         type: notificationType,
-        title: "Application Status Update",
+        title: notificationTitle,
         message: notificationMessage,
         priority:
           status === "Interview" || status === "Hired" ? "high" : "medium",
