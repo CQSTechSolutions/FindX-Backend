@@ -1,4 +1,4 @@
-import mongoose from "mongoose"
+import mongoose from "mongoose";
 
 const applicantSchema = new mongoose.Schema({
     user: {
@@ -150,7 +150,7 @@ const jobSchema = new mongoose.Schema({
     // Media Elements
     jobBanner: {
         type: String,
-        default: '',
+        default: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ6VwxLg0O0klViLl16ACovs6pWE9PSqenebkv9XexEfAGtAQRWPzIqvlY&s=10',
     },
     companyLogo: {
         type: String,
