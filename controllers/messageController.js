@@ -147,9 +147,12 @@ export const getUserConversations = async (req, res, next) => {
 
     if (unreadMessages.length > 0) {
       const messageIds = unreadMessages.map((msg) => msg._id);
-      await Message.updateMany({ _id: { $in: messageIds } }, { isRead: true });
+      const updateResult = await Message.updateMany(
+        { _id: { $in: messageIds } },
+        { isRead: true }
+      );
       console.log(
-        `✅ Marked ${unreadMessages.length} messages as read for user ${userId}`
+        `✅ Marked ${updateResult.modifiedCount} messages as read for user ${userId} in conversations list`
       );
     }
 
@@ -213,9 +216,12 @@ export const getConversationHistory = async (req, res, next) => {
 
     if (unreadMessages.length > 0) {
       const messageIds = unreadMessages.map((msg) => msg._id);
-      await Message.updateMany({ _id: { $in: messageIds } }, { isRead: true });
+      const updateResult = await Message.updateMany(
+        { _id: { $in: messageIds } },
+        { isRead: true }
+      );
       console.log(
-        `✅ Marked ${unreadMessages.length} messages as read for user ${currentUserId}`
+        `✅ Marked ${updateResult.modifiedCount} messages as read for user ${currentUserId} in conversation history`
       );
     }
 
@@ -308,18 +314,28 @@ export const sendMessage = async (req, res, next) => {
 // Mark messages as read
 export const markMessagesAsRead = async (req, res, next) => {
   try {
-    const { messageIds, userId } = req.body;
+    const { userId, partnerId, jobId } = req.body;
 
-    if (!messageIds || !Array.isArray(messageIds) || !userId) {
+    if (!userId || !partnerId || !jobId) {
       return res.status(400).json({
         success: false,
-        message: "Message IDs array and user ID are required",
+        message: "User ID, partner ID, and job ID are required",
       });
     }
 
+    // Mark all messages from partner to user for this job as read
     await Message.updateMany(
-      { _id: { $in: messageIds }, to: userId },
+      {
+        from: partnerId,
+        to: userId,
+        jobId: jobId,
+        isRead: false,
+      },
       { isRead: true }
+    );
+
+    console.log(
+      `✅ Marked messages as read for user ${userId} from partner ${partnerId} for job ${jobId}`
     );
 
     res.json({
@@ -521,11 +537,19 @@ export const markAllMessagesAsRead = async (req, res, next) => {
   try {
     const { userId } = req.params;
 
-    await Message.updateMany({ to: userId, isRead: false }, { isRead: true });
+    const result = await Message.updateMany(
+      { to: userId, isRead: false },
+      { isRead: true }
+    );
+
+    console.log(
+      `✅ Marked ${result.modifiedCount} messages as read for user ${userId}`
+    );
 
     res.json({
       success: true,
       message: "All messages marked as read",
+      modifiedCount: result.modifiedCount,
     });
   } catch (error) {
     console.error("Error marking all messages as read:", error);
