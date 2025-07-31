@@ -316,7 +316,20 @@ export const markMessagesAsRead = async (req, res, next) => {
   try {
     const { userId, partnerId, jobId } = req.body;
 
+    console.log(`🔍 Mark messages as read called with:`, {
+      userId,
+      partnerId,
+      jobId,
+    });
+    console.log(`🔍 Request method: ${req.method}`);
+    console.log(`🔍 Request URL: ${req.originalUrl}`);
+    console.log(`🔍 Request body:`, req.body);
+    console.log(`🔍 Request headers:`, req.headers);
+
     if (!userId || !partnerId || !jobId) {
+      console.log(
+        `❌ Missing required fields: userId=${userId}, partnerId=${partnerId}, jobId=${jobId}`
+      );
       return res.status(400).json({
         success: false,
         message: "User ID, partner ID, and job ID are required",
@@ -324,7 +337,7 @@ export const markMessagesAsRead = async (req, res, next) => {
     }
 
     // Mark all messages from partner to user for this job as read
-    await Message.updateMany(
+    const result = await Message.updateMany(
       {
         from: partnerId,
         to: userId,
@@ -335,12 +348,13 @@ export const markMessagesAsRead = async (req, res, next) => {
     );
 
     console.log(
-      `✅ Marked messages as read for user ${userId} from partner ${partnerId} for job ${jobId}`
+      `✅ Marked ${result.modifiedCount} messages as read for user ${userId} from partner ${partnerId} for job ${jobId}`
     );
 
     res.json({
       success: true,
       message: "Messages marked as read",
+      modifiedCount: result.modifiedCount,
     });
   } catch (error) {
     console.error("Error marking messages as read:", error);
@@ -536,6 +550,12 @@ export const getEmployerConversations = async (req, res, next) => {
 export const markAllMessagesAsRead = async (req, res, next) => {
   try {
     const { userId } = req.params;
+
+    console.log(`🔍 Mark all messages as read called for userId: ${userId}`);
+    console.log(`🔍 Request method: ${req.method}`);
+    console.log(`🔍 Request URL: ${req.originalUrl}`);
+    console.log(`🔍 Request params:`, req.params);
+    console.log(`🔍 Request headers:`, req.headers);
 
     const result = await Message.updateMany(
       { to: userId, isRead: false },
