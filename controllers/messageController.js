@@ -140,6 +140,19 @@ export const getUserConversations = async (req, res, next) => {
       (a, b) => b.lastMessage.createdAt - a.lastMessage.createdAt
     );
 
+    // Mark messages as read for the user who is viewing
+    const unreadMessages = messages.filter(
+      (message) => message.to?.toString() === userId && !message.isRead
+    );
+
+    if (unreadMessages.length > 0) {
+      const messageIds = unreadMessages.map((msg) => msg._id);
+      await Message.updateMany({ _id: { $in: messageIds } }, { isRead: true });
+      console.log(
+        `✅ Marked ${unreadMessages.length} messages as read for user ${userId}`
+      );
+    }
+
     res.json({
       success: true,
       conversations: conversationList,
@@ -190,6 +203,21 @@ export const getConversationHistory = async (req, res, next) => {
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
       .skip(parseInt(skip));
+
+    // Mark messages as read for the user who is viewing the conversation
+    // Determine which user is viewing (assuming userId1 is the current user)
+    const currentUserId = userId1;
+    const unreadMessages = messages.filter(
+      (message) => message.to?.toString() === currentUserId && !message.isRead
+    );
+
+    if (unreadMessages.length > 0) {
+      const messageIds = unreadMessages.map((msg) => msg._id);
+      await Message.updateMany({ _id: { $in: messageIds } }, { isRead: true });
+      console.log(
+        `✅ Marked ${unreadMessages.length} messages as read for user ${currentUserId}`
+      );
+    }
 
     res.json({
       success: true,
@@ -462,6 +490,19 @@ export const getEmployerConversations = async (req, res, next) => {
       (a, b) => b.lastMessage.createdAt - a.lastMessage.createdAt
     );
 
+    // Mark messages as read for the employer who is viewing
+    const unreadMessages = messages.filter(
+      (message) => message.to?.toString() === userId && !message.isRead
+    );
+
+    if (unreadMessages.length > 0) {
+      const messageIds = unreadMessages.map((msg) => msg._id);
+      await Message.updateMany({ _id: { $in: messageIds } }, { isRead: true });
+      console.log(
+        `✅ Marked ${unreadMessages.length} messages as read for employer ${userId}`
+      );
+    }
+
     res.json({
       success: true,
       conversations: conversationList,
@@ -620,6 +661,20 @@ export const getUserMessages = async (req, res, next) => {
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
       .skip(parseInt(skip));
+
+    // Mark messages as read for the user who is viewing
+    const unreadMessages = messages.filter(
+      (message) =>
+        message.to?.toString() === userId.toString() && !message.isRead
+    );
+
+    if (unreadMessages.length > 0) {
+      const messageIds = unreadMessages.map((msg) => msg._id);
+      await Message.updateMany({ _id: { $in: messageIds } }, { isRead: true });
+      console.log(
+        `✅ Marked ${unreadMessages.length} messages as read for user ${userId}`
+      );
+    }
 
     const total = await Message.countDocuments(query);
 

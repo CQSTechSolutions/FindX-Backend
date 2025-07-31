@@ -1290,7 +1290,7 @@ export const updateApplicationStatus = async (req, res, next) => {
           notificationType = "interview_invitation";
           break;
         case "Rejected":
-          notificationMessage = `Your application for ${job.jobTitle} has been reviewed.`;
+          notificationMessage = `Your application for ${job.jobTitle} was not selected this time. Keep applying!`;
           break;
         case "Hired":
           notificationMessage = `Congratulations! You've been hired for the ${job.jobTitle} position!`;

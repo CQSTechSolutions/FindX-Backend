@@ -172,7 +172,7 @@ export const createApplicationStatusNotification = async (
         message = `Congratulations! Your application for "${job.jobTitle}" has been shortlisted by ${employer.companyName}`;
         break;
       case "rejected":
-        title = "Application Update";
+        title = "Application Rejected";
         message = `Your application for "${job.jobTitle}" was not selected this time. Keep applying!`;
         break;
       default:
