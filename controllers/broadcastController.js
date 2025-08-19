@@ -6,7 +6,7 @@ import Employer from "../models/employer.model.js";
 dotenv.config();
 
 // Create nodemailer transporter
-const createTransporter = () => {
+export const createTransporter = () => {
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST || "smtp.gmail.com",
     port: process.env.SMTP_PORT || 587,
@@ -205,7 +205,7 @@ export const sendJobAlertEmails = async (
 🔧 Required Skills: ${jobSkills}
 
 View Job Details & Apply: ${
-      process.env.CLIENT_URL || "https://findx.com"
+      process.env.CLIENT_URL || "https://findx.jobs"
     }/job-details/${jobData._id}
 
 You received this email because this job matches your profile and preferences.
