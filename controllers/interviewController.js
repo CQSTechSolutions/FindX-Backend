@@ -760,14 +760,14 @@ const sendInterviewUpdateNotification = async (
     await createNotification(notificationData);
 
     // Send email notification
-    await sendInterviewUpdateEmail(
-      applicant,
-      employer,
-      job,
-      invitation,
-      updateType,
-      oldDetails
-    );
+    // await sendInterviewUpdateEmail(
+    //   applicant,
+    //   employer,
+    //   job,
+    //   invitation,
+    //   updateType,
+    //   oldDetails
+    // );
 
     console.log(
       `✅ Interview ${updateType} notification sent successfully to: ${applicant.email}`
@@ -819,13 +819,13 @@ const sendInterviewResponseNotification = async (
     await createNotification(notificationData);
 
     // Send email notification to employer
-    await sendInterviewResponseEmail(
-      employer,
-      applicant,
-      job,
-      invitation,
-      action
-    );
+    // await sendInterviewResponseEmail(
+    //   employer,
+    //   applicant,
+    //   job,
+    //   invitation,
+    //   action
+    // );
 
     console.log(
       `✅ Interview response notification sent successfully to employer: ${employer.email}`

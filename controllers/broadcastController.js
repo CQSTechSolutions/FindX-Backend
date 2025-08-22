@@ -193,23 +193,6 @@ export const sendJobAlertEmails = async (
 
     // Create job alert email content with exact title
     const title = `💼 New Job Alert: "${exactJobTitle}" at ${companyName}`;
-    const body = `
-🎯 Perfect Match! This job matches your profile and preferences.
-
-📋 Job Title: "${exactJobTitle}"
-🏢 Company: ${companyName}
-📍 Location: ${jobLocation}
-💼 Work Type: ${workType}
-🏠 Work Environment: ${workspaceOption}
-💰 Salary Range: ${salaryRange}
-🔧 Required Skills: ${jobSkills}
-
-View Job Details & Apply: ${
-      process.env.CLIENT_URL || "https://findx.jobs"
-    }/job-details/${jobData._id}
-
-You received this email because this job matches your profile and preferences.
-    `;
 
     // Use the provided matched users directly (they already have email addresses)
     let validUserEmails = userEmails.filter(
@@ -271,368 +254,182 @@ You received this email because this job matches your profile and preferences.
         totalCount: validUserEmails.length
       };
     }
-
-    // Get message type emoji and styling for job alerts
-    const typeInfo = {
-      emoji: "💼",
-      color: "#10B981",
-      label: "New Job Alert",
-    };
-
-    // Create enhanced HTML email template for job alert
+      
     const htmlTemplate = `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${title}</title>
-        <style>
-            body {
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-                line-height: 1.6;
-                color: #333;
-                max-width: 650px;
-                margin: 0 auto;
-                padding: 0;
-                background-color: #f8fafc;
-            }
-            .container {
-                background: white;
-                border-radius: 16px;
-                padding: 24px 8vw;
-                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
-                border: 1px solid #e5e7eb;
-                margin: 16px auto;
-                max-width: 600px;
-            }
-            .header {
-                text-align: center;
-                border-bottom: 3px solid #10B981;
-                padding-bottom: 18px;
-                margin-bottom: 24px;
-                position: relative;
-            }
-            .logo {
-                font-size: 32px;
-                font-weight: bold;
-                color: #10B981;
-                margin-bottom: 10px;
-                text-shadow: 0 2px 4px rgba(16, 185, 129, 0.1);
-            }
-            .company-section {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                margin-bottom: 18px;
-                padding: 16px;
-                background: linear-gradient(135deg, #F0FDF4, #DCFCE7);
-                border-radius: 12px;
-                border: 1px solid #BBF7D0;
-            }
-            .company-logo {
-                width: 56px;
-                height: 56px;
-                border-radius: 12px;
-                margin-right: 15px;
-                object-fit: cover;
-                border: 2px solid #10B981;
-                background: #e5e7eb;
-                display: inline-block;
-            }
-            .company-logo-fallback {
-                width: 56px;
-                height: 56px;
-                border-radius: 12px;
-                margin-right: 15px;
-                background: #10B981;
-                color: #fff;
-                font-size: 24px;
-                font-weight: bold;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                border: 2px solid #10B981;
-            }
-            .company-info h3 {
-                margin: 0 0 5px 0;
-                color: #065F46;
-                font-size: 18px;
-                font-weight: 700;
-            }
-            .company-info p {
-                margin: 0;
-                color: #047857;
-                font-size: 14px;
-            }
-            .job-title {
-                font-size: 22px;
-                font-weight: bold;
-                color: #1F2937;
-                margin-bottom: 18px;
-                text-align: center;
-                background: linear-gradient(135deg, #F3F4F6, #E5E7EB);
-                padding: 14px;
-                border-radius: 12px;
-                border-left: 5px solid #10B981;
-                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
-            }
-            .job-description {
-                background: #F9FAFB;
-                padding: 16px;
-                border-radius: 10px;
-                margin: 16px 0;
-                border-left: 4px solid #D1D5DB;
-                font-style: italic;
-                color: #6B7280;
-            }
-            .job-details {
-                background: linear-gradient(135deg, #F9FAFB, #F3F4F6);
-                padding: 18px;
-                border-radius: 12px;
-                margin: 18px 0;
-                border: 1px solid #E5E7EB;
-            }
-            .detail-row {
-                display: flex;
-                margin-bottom: 10px;
-                align-items: center;
-                padding: 6px 0;
-            }
-            .detail-label {
-                font-weight: 700;
-                color: #374151;
-                min-width: 120px;
-                margin-right: 16px;
-                font-size: 15px;
-            }
-            .detail-value {
-                color: #1F2937;
-                flex: 1;
-                font-weight: 500;
-                font-size: 15px;
-            }
-            .skills-section {
-                background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
-                padding: 14px;
-                border-radius: 10px;
-                margin: 14px 0;
-                border: 1px solid #BFDBFE;
-            }
-            .skills-title {
-                font-weight: 700;
-                color: #1E40AF;
-                margin-bottom: 8px;
-                font-size: 16px;
-            }
-            .skills-list {
-                color: #1E3A8A;
-                font-weight: 500;
-            }
-            .cta-section {
-                text-align: center;
-                margin: 20px 0;
-                padding: 18px;
-                background: linear-gradient(135deg, #F0FDF4, #DCFCE7);
-                border-radius: 12px;
-                border: 1px solid #BBF7D0;
-            }
-            .cta-button {
-                display: inline-block;
-                background: linear-gradient(135deg, #10B981, #059669);
-                color: white;
-                padding: 14px 28px;
-                text-decoration: none;
-                border-radius: 8px;
-                font-weight: 700;
-                font-size: 16px;
-                margin: 10px 0;
-                text-align: center;
-                box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-                transition: all 0.3s ease;
-            }
-            .cta-button:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
-            }
-            .footer {
-                margin-top: 24px;
-                padding-top: 18px;
-                border-top: 2px solid #E5E7EB;
-                font-size: 14px;
-                color: #6B7280;
-                text-align: center;
-                background: #F9FAFB;
-                padding: 14px;
-                border-radius: 10px;
-            }
-            .footer p {
-                margin: 5px 0;
-            }
-            .highlight {
-                background: linear-gradient(135deg, #FEF3C7, #FDE68A);
-                padding: 10px;
-                border-radius: 8px;
-                border-left: 4px solid #F59E0B;
-                margin: 14px 0;
-            }
-            .highlight p {
-                margin: 0;
-                color: #92400E;
-                font-weight: 600;
-            }
-            @media (max-width: 600px) {
-                .container {
-                    padding: 8px 2vw;
-                }
-                .company-section {
-                    flex-direction: column;
-                    align-items: flex-start;
-                }
-                .company-logo, .company-logo-fallback {
-                    margin-right: 0;
-                    margin-bottom: 10px;
-                }
-            }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <div class="logo">FindX</div>
-                <div class="match-badge">🎯 Perfect Match Alert</div>
-            </div>
-            <div class="company-section">
-                <!-- Company Logo with fallback -->
-                ${
-                  companyLogo
-                    ? `
-                  <img src="${companyLogo}" alt="${companyName}" class="company-logo" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
-                  <span class="company-logo-fallback" style="display:none;">${
-                    companyName ? companyName.charAt(0) : "F"
-                  }</span>
-                `
-                    : `
-                  <span class="company-logo-fallback">${
-                    companyName ? companyName.charAt(0) : "F"
-                  }</span>
-                `
-                }
-                <div class="company-info">
-                    <h3>${companyName}</h3>
-                    ${companyIndustry ? `<p>${companyIndustry}</p>` : ""}
-                    ${companyWebsite ? `<p>${companyWebsite}</p>` : ""}
-                </div>
-            </div>
-            <div class="job-title">"${exactJobTitle}"</div>
-            <div class="highlight">
-                <p>🎯 This job perfectly matches your profile and preferences!</p>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${title}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 20px;
+            margin-bottom: 25px;
+        }
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 10px;
+        }
+        .alert-badge {
+            background: #28a745;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .job-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+            border-radius: 4px;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .section-title {
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        .detail-row {
+            margin: 8px 0;
+        }
+        .detail-label {
+            font-weight: bold;
+            color: #555;
+        }
+        .cta-button {
+            display: inline-block;
+            background: #007bff;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+            margin: 15px 0;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">FindX</div>
+            <div class="alert-badge">🎯 Perfect Match Alert</div>
+        </div>
+        
+        <div class="job-title">"${exactJobTitle}"</div>
+        
+        <div class="section">
+            <div class="section-title">🏢 Company Information</div>
+            <div class="detail-row">
+                <span class="detail-label">Company:</span> ${companyName}
             </div>
             ${
-              truncatedDescription !== "No description available"
-                ? `<div class="job-description">
-                    <strong>Job Description:</strong><br>
-                    ${truncatedDescription}
-                </div>`
+              companyIndustry
+                ? `<div class="detail-row"><span class="detail-label">Industry:</span> ${companyIndustry}</div>`
                 : ""
             }
-            <div class="job-details">
-                <div class="detail-row">
-                    <span class="detail-label">🏢 Company:</span>
-                    <span class="detail-value">${companyName}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">📍 Location:</span>
-                    <span class="detail-value">${jobLocation}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">💼 Work Type:</span>
-                    <span class="detail-value">${workType}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">🏠 Environment:</span>
-                    <span class="detail-value">${workspaceOption}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">💰 Salary:</span>
-                    <span class="detail-value">${salaryRange}</span>
-                </div>
+            ${
+              companyWebsite
+                ? `<div class="detail-row"><span class="detail-label">Website:</span> ${companyWebsite}</div>`
+                : ""
+            }
+        </div>
+        
+        <div class="section">
+            <div class="section-title">📋 Job Details</div>
+            <div class="detail-row">
+                <span class="detail-label">Location:</span> ${jobLocation}
             </div>
-            <div class="skills-section">
-                <div class="skills-title">🔧 Required Skills:</div>
-                <div class="skills-list">${jobSkills}</div>
+            <div class="detail-row">
+                <span class="detail-label">Work Type:</span> ${workType}
             </div>
-            <div class="cta-section">
-                <h3 style="margin: 0 0 15px 0; color: #065F46;">Ready to Apply?</h3>
-                <a href="${
-                  process.env.CLIENT_URL || "https://findx.com"
-                }/job-details/${jobData._id}" class="cta-button">
-                    🚀 View Job Details & Apply Now
-                </a>
-                <p style="margin: 10px 0 0 0; font-size: 14px; color: #047857;">
-                    Don't miss this opportunity - apply today!
-                </p>
+            <div class="detail-row">
+                <span class="detail-label">Environment:</span> ${workspaceOption}
             </div>
-            <div class="footer">
-                <p><strong>Why you received this email:</strong> This job matches your profile and preferences.</p>
-                <p>© 2024 FindX. All rights reserved.</p>
-                <p>FindX - Your Gateway to Career Success</p>
+            <div class="detail-row">
+                <span class="detail-label">Salary:</span> ${salaryRange}
             </div>
         </div>
-    </body>
-    </html>
-    `;
+            
+        ${
+          jobSkills && `
+        <div class="section">
+            <div class="section-title">🔧 Required Skills</div>
+            <div>${jobSkills}</div>
+        </div>
+        `
+        }
 
-    // Create enhanced plain text version
-    const textContent = `
-FindX 💼 - New Job Alert
-
-🎯 PERFECT MATCH ALERT!
-
-Job Title: "${exactJobTitle}"
-Company: ${companyName}
-${companyIndustry ? `Industry: ${companyIndustry}` : ""}
-${companyWebsite ? `Website: ${companyWebsite}` : ""}
-
-📋 JOB DETAILS:
-Location: ${jobLocation}
-Work Type: ${workType}
-Work Environment: ${workspaceOption}
-Salary: ${salaryRange}
-
-🔧 REQUIRED SKILLS:
-${jobSkills}
-
-${
-  truncatedDescription !== "No description available"
-    ? `
-📝 JOB DESCRIPTION:
-${truncatedDescription}
-`
-    : ""
-}
-
-🚀 READY TO APPLY?
-// TODO: Add a link to the application job apply page
-View Job Details & Apply: ${
-      process.env.CLIENT_URL || "https://findx.com"
-    }/job-details/${jobData._id}
-
-Don't miss this opportunity - apply today!
-
----
-Why you received this email: This job matches your profile and preferences.
-© 2024 FindX. All rights reserved.
-FindX - Your Gateway to Career Success
+        ${
+          truncatedDescription !== "No description available"
+            ? `
+        <div class="section">
+            <div class="section-title">📝 Job Description</div>
+            <div>${truncatedDescription}</div>
+        </div>
+        `
+            : ""
+        }
+        
+        <div class="footer">
+            <p><strong>Why you received this email:</strong> This job matches your profile and preferences.</p>
+            <p>© 2025 FindX. All rights reserved.</p>
+            <p>FindX - Your Gateway to Career Success</p>
+        </div>
+    </div>
+</body>
+</html>
     `;
 
     // Email options using BCC (efficient approach)
     const BCC_LIMIT = 500; // BCC limit per email
     const totalEmails = validUserEmails.length;
     const batches = Math.ceil(totalEmails / BCC_LIMIT);
-    
-    console.log(`📧 Sending emails in ${batches} batch(es) of max ${BCC_LIMIT} recipients each`);
-    console.log(`📊 Total recipients: ${totalEmails}, Batches needed: ${batches}`);
+
+    console.log(
+      `📧 Sending emails in ${batches} batch(es) of max ${BCC_LIMIT} recipients each`
+    );
+    console.log(
+      `📊 Total recipients: ${totalEmails}, Batches needed: ${batches}`
+    );
 
     let totalSentCount = 0;
     let failedEmails = [];
@@ -643,8 +440,12 @@ FindX - Your Gateway to Career Success
       const startIndex = batchIndex * BCC_LIMIT;
       const endIndex = Math.min(startIndex + BCC_LIMIT, totalEmails);
       const batchEmails = validUserEmails.slice(startIndex, endIndex);
-      
-      console.log(`📧 Sending batch ${batchIndex + 1}/${batches} with ${batchEmails.length} recipients`);
+
+      console.log(
+        `📧 Sending batch ${batchIndex + 1}/${batches} with ${
+          batchEmails.length
+        } recipients`
+      );
 
       try {
         const mailOptions = {
@@ -655,7 +456,6 @@ FindX - Your Gateway to Career Success
           to: process.env.SMTP_USER, // Send to yourself as the main recipient
           bcc: batchEmails, // Batch of users in BCC
           subject: title,
-          text: textContent,
           html: htmlTemplate,
           // Add headers to prevent replies going to all users
           headers: {
@@ -666,21 +466,27 @@ FindX - Your Gateway to Career Success
 
         // Send email using BCC for this batch
         await transporter.sendMail(mailOptions);
-        
+
         totalSentCount += batchEmails.length;
-        console.log(`✅ Batch ${batchIndex + 1}/${batches} sent successfully to ${batchEmails.length} recipients`);
-        
+        console.log(
+          `✅ Batch ${batchIndex + 1}/${batches} sent successfully to ${
+            batchEmails.length
+          } recipients`
+        );
+
         // Add a small delay between batches to avoid rate limiting
         if (batchIndex < batches - 1) {
-          await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+          await new Promise((resolve) => setTimeout(resolve, 1000)); // 1 second delay
         }
-        
       } catch (batchError) {
-        console.error(`❌ Error sending batch ${batchIndex + 1}/${batches}:`, batchError);
+        console.error(
+          `❌ Error sending batch ${batchIndex + 1}/${batches}:`,
+          batchError
+        );
         batchErrors.push({
           batchIndex: batchIndex + 1,
           error: batchError.message,
-          recipients: batchEmails.length
+          recipients: batchEmails.length,
         });
         failedEmails.push(...batchEmails);
       }
