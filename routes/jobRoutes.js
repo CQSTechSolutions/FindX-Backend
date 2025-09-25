@@ -1,35 +1,37 @@
 import express from 'express';
 import {
-    createJob,
-    getAllJobs,
-    getLatestJobs,
-    getJob,
-    updateJob,
-    deleteJob,
-    applyForJob,
-    updateApplicationStatus,
-    updateJobStatus,
-    getMyPostedJobs,
-    getMyApplications,
-    updateSavedJobs,
-    getApplicationResponses,
-    getUserApplicationResponse,
-    fixEmptyQuestionResponses,
-    getJobRecommendations,
-    sendPromotionNotifications,
-    getJobCategories,
-    getJobSubcategories,
-    getJobStatistics,
-    getSavedJobs,
-    saveJob
-} from '../controllers/jobController.js';
-import { protect } from '../middleware/auth.js';
-import { protectEmployer } from '../middleware/employerAuth.js';
+  applyForJob,
+  createJob,
+  deleteJob,
+  fixEmptyQuestionResponses,
+  getAllJobs,
+  getApplicationResponses,
+  getJob,
+  getJobCategories,
+  getJobRecommendations,
+  getJobStatistics,
+  getJobSubcategories,
+  getLatestJobs,
+  getMyApplications,
+  getMyPostedJobs,
+  getSavedJobs,
+  getUserApplicationResponse,
+  saveJob,
+  searchJobs,
+  sendPromotionNotifications,
+  updateApplicationStatus,
+  updateJob,
+  updateJobStatus,
+  updateSavedJobs,
+} from "../controllers/jobController.js";
+import { protect } from "../middleware/auth.js";
+import { protectEmployer } from "../middleware/employerAuth.js";
 
 const router = express.Router();
 
 // Public routes
-router.get('/', getAllJobs);
+router.get("/", getAllJobs);
+router.get("/search", searchJobs);
 router.get('/latest', getLatestJobs);
 router.get('/categories', getJobCategories);
 router.get('/categories/:category/subcategories', getJobSubcategories);

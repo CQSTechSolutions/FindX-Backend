@@ -11,10 +11,10 @@ import employerRoutes from "./routes/employer.routes.js";
 import interviewRoutes from "./routes/interview.routes.js";
 import jobRoutes from "./routes/jobRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
+import notificationRoutes from "./routes/notification.routes.js";
 import paymentRoutes from "./routes/payment.routes.js";
 import resumeRoutes from "./routes/resumeRoutes.js";
 import userSearchRoutes from "./routes/userSearch.routes.js";
-import notificationRoutes from "./routes/notification.routes.js";
 
 dotenv.config();
 
@@ -25,18 +25,23 @@ app.use(
   cors({
     origin: "*",
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
-    credentials: true
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Requested-With",
+      "Accept",
+    ],
+    credentials: true,
   })
 );
 app.use(express.json());
 
 // Add security headers
 app.use((req, res, next) => {
-    res.setHeader('X-Frame-Options', 'DENY');
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-XSS-Protection', '1; mode=block');
-    next();
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  next();
 });
 
 // MongoDB Connection with enhanced error handling
@@ -87,36 +92,37 @@ app.get("/api/health", (req, res) => {
 });
 
 // Add root route
-app.get('/', (req, res) => {
-    res.json({
-        success: true,
-        message: 'FindX API Server is running',
-        version: '1.0.0',
-        timestamp: new Date().toISOString(),
-        endpoints: {
-            jobs: '/api/jobs',
-            auth: '/api/auth',
-            employer: '/api/employer',
-            notifications: '/api/notifications'
-        }
-    });
+app.get("/", (req, res) => {
+  res.json({
+    success: true,
+    message: "FindX API Server is running",
+    version: "1.0.0",
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      jobs: "/api/jobs",
+      auth: "/api/auth",
+      employer: "/api/employer",
+      notifications: "/api/notifications",
+    },
+  });
 });
 
-// Add API base route  
-app.get('/api', (req, res) => {
-    res.json({
-        success: true,
-        message: 'FindX API Base',
-        version: '1.0.0',
-        availableRoutes: [
-            'GET /api/jobs - Get all jobs',
-            'POST /api/auth/signup - User signup',
-            'POST /api/auth/login - User login', 
-            'POST /api/employer/createAccount - Employer signup',
-            'POST /api/employer/login - Employer login',
-            'GET /api/notifications - Get notifications (auth required)'
-        ]
-    });
+// Add API base route
+app.get("/api", (req, res) => {
+  res.json({
+    success: true,
+    message: "FindX API Base",
+    version: "1.0.0",
+    availableRoutes: [
+      "GET /api/jobs - Get all jobs (paginated)",
+      "GET /api/jobs/search - Search jobs with filters (paginated)",
+      "POST /api/auth/signup - User signup",
+      "POST /api/auth/login - User login",
+      "POST /api/employer/createAccount - Employer signup",
+      "POST /api/employer/login - Employer login",
+      "GET /api/notifications - Get notifications (auth required)",
+    ],
+  });
 });
 
 // Routes

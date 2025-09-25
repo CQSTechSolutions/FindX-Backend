@@ -638,18 +638,126 @@ export const createJob = async (req, res, next) => {
   }
 };
 
-// Get all jobs
+// Get all jobs with pagination
 export const getAllJobs = async (req, res, next) => {
   try {
-    // TODO: Might have to block the poplulate method.
-    // FIXME: Update the method controller to make it work.
-    const jobs = await Job.find()
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 100; // Default limit of 100 jobs
+    const skip = (page - 1) * limit;
+
+    // Validate limit to prevent abuse
+    const maxLimit = 100;
+    const actualLimit = Math.min(limit, maxLimit);
+
+    const jobs = await Job.find({ status: "Open" })
       .populate("postedBy", "companyName email companyLogo")
-      .sort("-createdAt");
+      .sort("-createdAt")
+      .skip(skip)
+      .limit(actualLimit);
+
+    // Get total count for pagination info
+    const totalJobs = await Job.countDocuments({ status: "Open" });
+    const totalPages = Math.ceil(totalJobs / actualLimit);
 
     res.json({
       success: true,
       count: jobs.length,
+      totalJobs,
+      totalPages,
+      currentPage: page,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1,
+      jobs,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Search jobs with filters and pagination
+export const searchJobs = async (req, res, next) => {
+  try {
+    const {
+      searchQuery,
+      locationQuery,
+      workType,
+      page = 1,
+      limit = 100
+    } = req.query;
+
+    const actualLimit = Math.min(parseInt(limit), 100); // Max 100 jobs per request
+    const skip = (parseInt(page) - 1) * actualLimit;
+
+    // Build search query
+    const query = { status: "Open" };
+    const andConditions = [];
+
+    // Search by job title, company name, skills, description, category
+    if (searchQuery && searchQuery.trim() !== "") {
+      const searchRegex = new RegExp(searchQuery.trim(), 'i');
+      andConditions.push({
+        $or: [
+          { jobTitle: searchRegex },
+          { companyName: searchRegex },
+          { jobDescription: searchRegex },
+          { jobCategory: searchRegex },
+          { subcategory: searchRegex },
+          { jobSkills: { $in: [searchRegex] } },
+          { jobKeywords: { $in: [searchRegex] } }
+        ]
+      });
+    }
+
+    // Search by location
+    if (locationQuery && locationQuery.trim() !== "") {
+      const locationRegex = new RegExp(locationQuery.trim(), 'i');
+      andConditions.push({
+        $or: [
+          { jobLocation: locationRegex },
+          { city: locationRegex },
+          { state: locationRegex },
+          { country: locationRegex }
+        ]
+      });
+    }
+
+    // Filter by work type
+    if (workType && workType !== "all") {
+      andConditions.push({
+        $or: [
+          { workType: { $regex: workType, $options: 'i' } },
+          { workspaceOption: { $regex: workType, $options: 'i' } }
+        ]
+      });
+    }
+
+    // Combine all conditions
+    if (andConditions.length > 0) {
+      query.$and = andConditions;
+    }
+
+    // Execute search with pagination
+    const jobs = await Job.find(query)
+      .populate("postedBy", "companyName email companyLogo")
+      .sort({ premiumListing: -1, createdAt: -1 }) // Premium jobs first, then by date
+      .skip(skip)
+      .limit(actualLimit);
+
+    // Get total count for pagination
+    const totalJobs = await Job.countDocuments(query);
+    const totalPages = Math.ceil(totalJobs / actualLimit);
+
+    res.json({
+      success: true,
+      count: jobs.length,
+      totalJobs,
+      totalPages,
+      currentPage: parseInt(page),
+      hasNextPage: parseInt(page) < totalPages,
+      hasPrevPage: parseInt(page) > 1,
+      searchQuery: searchQuery || null,
+      locationQuery: locationQuery || null,
+      workType: workType || null,
       jobs,
     });
   } catch (error) {
