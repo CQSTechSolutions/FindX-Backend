@@ -121,6 +121,12 @@ const employerSchema = new mongoose.Schema({
     earlyBirdPricing: {
         type: Boolean,
         default: true
+    },
+    // Messaging subscription reference
+    messagingSubscription: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'MessagingSubscription',
+        required: false
     }
 }, { timestamps: true });
 

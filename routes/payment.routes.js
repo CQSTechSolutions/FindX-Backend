@@ -8,7 +8,9 @@ import {
     getInvoice,
     handleStripeWebhook,
     createSetupIntent,
-    getPaymentMethods
+    getPaymentMethods,
+    createMessagingSubscriptionPayment,
+    getMessagingSubscriptionStatus
 } from '../controllers/paymentController.js';
 import { protectEmployer } from '../middleware/employerAuth.js';
 
@@ -17,6 +19,10 @@ const router = express.Router();
 // Job posting payment routes
 router.post('/create-job-posting-payment', protectEmployer, createJobPostingPayment);
 router.post('/create-notification-payment', protectEmployer, createNotificationPayment);
+
+// Messaging subscription payment routes
+router.post('/create-messaging-subscription-payment', protectEmployer, createMessagingSubscriptionPayment);
+router.get('/messaging-subscription-status/:employerId', protectEmployer, getMessagingSubscriptionStatus);
 
 // Payment confirmation routes
 router.post('/confirm-success', protectEmployer, confirmPaymentSuccess);
@@ -33,4 +39,4 @@ router.get('/payment-methods/:customerId', protectEmployer, getPaymentMethods);
 // Stripe webhook endpoint (no auth required)
 router.post('/webhook', express.raw({ type: 'application/json' }), handleStripeWebhook);
 
-export default router; 
+export default router;

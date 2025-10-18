@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 import Stripe from "stripe";
 import Payment from "../models/Payment.model.js";
+import MessagingSubscription from "../models/MessagingSubscription.model.js";
+import Employer from "../models/employer.model.js";
 import { createJob } from "./jobController.js";
 
 // Initialize Stripe with error handling
@@ -137,6 +139,13 @@ const PRICING_CONFIG = {
       price: 29900,
       candidateCount: 1000,
     },
+  },
+  MESSAGING_SUBSCRIPTION: {
+    id: "MessagingPack",
+    name: "Messaging Pack - Contact 5 Users",
+    price: 4900, // $49.00 AUD in cents
+    contactsAllowed: 5,
+    currency: 'aud'
   },
   ADD_ONS: {
     immediateStart: {
@@ -480,6 +489,161 @@ export const handlePaymentFailure = async (req, res) => {
   }
 };
 
+// Create payment intent for messaging subscription
+export const createMessagingSubscriptionPayment = async (req, res) => {
+  try {
+    checkStripeAvailable();
+
+    const { employerId } = req.body;
+
+    // Validate input
+    if (!employerId) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required field: employerId",
+      });
+    }
+
+    // Convert employerId to ObjectId if it's a valid string
+    let objectIdEmployerId = employerId;
+    if (
+      typeof employerId === "string" &&
+      mongoose.Types.ObjectId.isValid(employerId)
+    ) {
+      objectIdEmployerId = new mongoose.Types.ObjectId(employerId);
+    }
+
+    // Check if employer exists
+    const employer = await Employer.findById(objectIdEmployerId);
+    if (!employer) {
+      return res.status(404).json({
+        success: false,
+        message: "Employer not found",
+      });
+    }
+
+    // Get or create messaging subscription
+    const subscription = await MessagingSubscription.getOrCreateForEmployer(objectIdEmployerId);
+
+    // Check if employer already has an active subscription with remaining contacts
+    if (subscription.isActive && subscription.remainingContacts > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "You already have an active messaging subscription with remaining contacts",
+        subscription: {
+          remainingContacts: subscription.remainingContacts,
+          totalContacts: subscription.totalContacts,
+          contactedUsers: subscription.contactedUsers.length
+        }
+      });
+    }
+
+    const config = PRICING_CONFIG.MESSAGING_SUBSCRIPTION;
+
+    // Create payment intent
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: config.price,
+      currency: config.currency,
+      metadata: {
+        employerId: objectIdEmployerId.toString(),
+        subscriptionType: 'messaging_pack',
+        contactsAllowed: config.contactsAllowed.toString(),
+      },
+      description: `${config.name} for ${employer.companyName}`,
+    });
+
+    // Create payment record
+    const paymentRecord = new Payment({
+      employerId: objectIdEmployerId,
+      stripePaymentIntentId: paymentIntent.id,
+      amount: config.price,
+      currency: config.currency,
+      type: "messaging_subscription",
+      messagingSubscriptionId: subscription._id,
+      contactsAllowed: config.contactsAllowed,
+      status: "pending",
+      metadata: {
+        stripeCustomerId: paymentIntent.customer,
+        paymentMethodTypes: paymentIntent.payment_method_types,
+        subscriptionType: 'messaging_pack',
+      },
+    });
+
+    await paymentRecord.save();
+
+    res.json({
+      success: true,
+      client_secret: paymentIntent.client_secret,
+      paymentIntentId: paymentIntent.id,
+      amount: config.price,
+      currency: config.currency,
+      paymentRecordId: paymentRecord._id,
+      subscription: {
+        id: subscription._id,
+        remainingContacts: subscription.remainingContacts,
+        totalContacts: subscription.totalContacts,
+        isActive: subscription.isActive
+      }
+    });
+  } catch (error) {
+    console.error("Error creating messaging subscription payment:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to create messaging subscription payment",
+      error: error.message,
+    });
+  }
+};
+
+// Get messaging subscription status for employer
+export const getMessagingSubscriptionStatus = async (req, res) => {
+  try {
+    const { employerId } = req.params;
+
+    // Convert employerId to ObjectId if it's a valid string
+    let objectIdEmployerId = employerId;
+    if (
+      typeof employerId === "string" &&
+      mongoose.Types.ObjectId.isValid(employerId)
+    ) {
+      objectIdEmployerId = new mongoose.Types.ObjectId(employerId);
+    }
+
+    // Get messaging subscription
+    const subscription = await MessagingSubscription.findOne({ 
+      employerId: objectIdEmployerId 
+    }).populate('contactedUsers.userId', 'name email');
+
+    if (!subscription) {
+      return res.json({
+        success: true,
+        subscription: null,
+        hasSubscription: false
+      });
+    }
+
+    res.json({
+      success: true,
+      subscription: {
+        id: subscription._id,
+        isActive: subscription.isActive,
+        totalContacts: subscription.totalContacts,
+        remainingContacts: subscription.remainingContacts,
+        contactedUsers: subscription.contactedUsers,
+        purchaseDate: subscription.purchaseDate
+      },
+      hasSubscription: true
+    });
+  } catch (error) {
+    console.error("Error getting messaging subscription status:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to get messaging subscription status",
+      error: error.message,
+    });
+  }
+};
+
 // Get payment history for employer
 export const getPaymentHistory = async (req, res) => {
   try {
@@ -661,7 +825,7 @@ export const handleStripeWebhook = async (req, res) => {
         console.log("Payment succeeded:", paymentIntentSucceeded.id);
 
         // Update payment record
-        await Payment.findOneAndUpdate(
+        const updatedPayment = await Payment.findOneAndUpdate(
           { stripePaymentIntentId: paymentIntentSucceeded.id },
           {
             status: "completed",
@@ -670,8 +834,40 @@ export const handleStripeWebhook = async (req, res) => {
               paymentMethod: paymentIntentSucceeded.payment_method,
               receiptUrl: paymentIntentSucceeded.charges?.data[0]?.receipt_url,
             },
-          }
+          },
+          { new: true }
         );
+
+        // If this is a messaging subscription payment, activate the subscription
+        if (updatedPayment && updatedPayment.type === 'messaging_subscription') {
+          try {
+            // Activate the messaging subscription
+            const subscription = await MessagingSubscription.findByIdAndUpdate(
+              updatedPayment.messagingSubscriptionId,
+              {
+                isActive: true,
+                remainingContacts: updatedPayment.contactsAllowed || 5,
+                totalContacts: updatedPayment.contactsAllowed || 5,
+                purchaseDate: new Date(),
+                paymentId: updatedPayment._id,
+                stripePaymentIntentId: paymentIntentSucceeded.id,
+                contactedUsers: [] // Reset contacted users for new subscription
+              },
+              { new: true }
+            );
+
+            // Update employer record with subscription reference
+            if (subscription) {
+              await Employer.findByIdAndUpdate(
+                updatedPayment.employerId,
+                { messagingSubscription: subscription._id }
+              );
+              console.log("✅ Messaging subscription activated:", subscription._id);
+            }
+          } catch (subscriptionError) {
+            console.error("Error activating messaging subscription:", subscriptionError);
+          }
+        }
         break;
 
       case "payment_intent.payment_failed":

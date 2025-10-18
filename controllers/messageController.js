@@ -2,6 +2,7 @@ import Job from "../models/Job.model.js";
 import Message from "../models/Message.model.js";
 import User from "../models/User.js";
 import Employer from "../models/employer.model.js";
+import MessagingSubscription from "../models/MessagingSubscription.model.js";
 
 // Validate if user can message employer for a specific job
 export const validateMessagingPermission = async (req, res, next) => {
@@ -269,6 +270,54 @@ export const sendMessage = async (req, res, next) => {
       });
     }
 
+    // Check messaging subscription limits for employers contacting users
+    if (fromModel === 'Employer' && toModel === 'User') {
+      try {
+        const subscription = await MessagingSubscription.findOne({ 
+          employerId: from, 
+          isActive: true 
+        });
+
+        if (!subscription) {
+          return res.status(403).json({
+            success: false,
+            message: "You need an active messaging subscription to contact users. Please purchase a messaging pack.",
+            requiresSubscription: true
+          });
+        }
+
+        // Check if employer can contact this user
+        const canContact = await subscription.canContactUser(to);
+        if (!canContact) {
+          return res.status(403).json({
+            success: false,
+            message: "You have reached your contact limit. Please purchase additional messaging credits.",
+            requiresSubscription: true,
+            remainingContacts: subscription.remainingContacts
+          });
+        }
+
+        // Check if this is the first message to this user
+        const existingConversation = await Message.findOne({
+          $or: [
+            { from: from, to: to, fromModel: 'Employer', toModel: 'User' },
+            { from: to, to: from, fromModel: 'User', toModel: 'Employer' }
+          ]
+        });
+
+        // If no existing conversation, this will consume a contact
+        if (!existingConversation) {
+          console.log(`🔄 New conversation detected between employer ${from} and user ${to}`);
+        }
+      } catch (subscriptionError) {
+        console.error("Error checking messaging subscription:", subscriptionError);
+        return res.status(500).json({
+          success: false,
+          message: "Error validating messaging subscription"
+        });
+      }
+    }
+
     // Create new message
     const message = new Message({
       from,
@@ -282,6 +331,35 @@ export const sendMessage = async (req, res, next) => {
     });
 
     await message.save();
+
+    // Record contact for messaging subscription if this is employer to user and first message
+    if (fromModel === 'Employer' && toModel === 'User') {
+      try {
+        const existingConversation = await Message.findOne({
+          _id: { $ne: message._id }, // Exclude the message we just created
+          $or: [
+            { from: from, to: to, fromModel: 'Employer', toModel: 'User' },
+            { from: to, to: from, fromModel: 'User', toModel: 'Employer' }
+          ]
+        });
+
+        // If no existing conversation, record this contact
+        if (!existingConversation) {
+          const subscription = await MessagingSubscription.findOne({ 
+            employerId: from, 
+            isActive: true 
+          });
+
+          if (subscription) {
+            await subscription.recordContact(to, message._id);
+            console.log(`✅ Contact recorded for employer ${from} -> user ${to}. Remaining: ${subscription.remainingContacts - 1}`);
+          }
+        }
+      } catch (contactError) {
+        console.error("Error recording contact:", contactError);
+        // Don't fail the message sending if contact recording fails
+      }
+    }
 
     // Populate the message
     const populatedMessage = await Message.findById(message._id)

@@ -30,7 +30,7 @@ const paymentSchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['job_posting', 'notification_package', 'subscription'],
+        enum: ['job_posting', 'notification_package', 'subscription', 'messaging_subscription'],
         required: true
     },
     planId: {
@@ -73,6 +73,16 @@ const paymentSchema = new mongoose.Schema({
         enum: ['app', 'email', 'both'],
         required: false
     },
+    // Messaging subscription specific fields
+    messagingSubscriptionId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'MessagingSubscription',
+        required: false
+    },
+    contactsAllowed: {
+        type: Number,
+        required: false // Number of contacts allowed for messaging subscription
+    },
     metadata: {
         type: Object,
         default: {}
@@ -100,4 +110,4 @@ paymentSchema.index({ status: 1 });
 
 const Payment = mongoose.model('Payment', paymentSchema);
 
-export default Payment; 
+export default Payment;
