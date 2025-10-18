@@ -366,8 +366,11 @@ export const confirmPaymentSuccess = async (req, res) => {
       };
       await paymentRecord.save();
 
-      // Only call jobController.createJob after payment, do not create jobs here
+      // Handle different payment types after successful payment
       let createdJob = null;
+      let activatedSubscription = null;
+
+      // Handle job posting payments
       if (
         paymentRecord.type === "job_posting" &&
         paymentRecord.jobData &&
@@ -427,6 +430,41 @@ export const confirmPaymentSuccess = async (req, res) => {
           // Don't fail the payment confirmation, just log the error
         }
       }
+
+      // Handle messaging subscription payments
+      if (paymentRecord.type === "messaging_subscription" && paymentRecord.messagingSubscriptionId) {
+        try {
+          // Activate the messaging subscription
+          activatedSubscription = await MessagingSubscription.findByIdAndUpdate(
+            paymentRecord.messagingSubscriptionId,
+            {
+              isActive: true,
+              remainingContacts: paymentRecord.contactsAllowed || 5,
+              totalContacts: paymentRecord.contactsAllowed || 5,
+              purchaseDate: new Date(),
+              paymentId: paymentRecord._id,
+              stripePaymentIntentId: paymentIntentId,
+              contactedUsers: [] // Reset contacted users for new subscription
+            },
+            { new: true }
+          );
+
+          // Update employer record with subscription reference
+          if (activatedSubscription) {
+            await Employer.findByIdAndUpdate(
+              paymentRecord.employerId,
+              { messagingSubscription: activatedSubscription._id }
+            );
+            console.log("✅ Messaging subscription activated:", activatedSubscription._id);
+          }
+        } catch (subscriptionError) {
+          console.error(
+            "Error activating messaging subscription:",
+            subscriptionError
+          );
+          // Don't fail the payment confirmation, just log the error
+        }
+      }
       return res.json({
         success: true,
         message: "Payment confirmed successfully",
@@ -437,6 +475,14 @@ export const confirmPaymentSuccess = async (req, res) => {
               _id: createdJob._id,
               jobTitle: createdJob.jobTitle,
               status: createdJob.status,
+            }
+          : null,
+        activatedSubscription: activatedSubscription
+          ? {
+              _id: activatedSubscription._id,
+              isActive: activatedSubscription.isActive,
+              remainingContacts: activatedSubscription.remainingContacts,
+              totalContacts: activatedSubscription.totalContacts,
             }
           : null,
       });
