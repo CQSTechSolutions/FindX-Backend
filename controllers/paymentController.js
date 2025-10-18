@@ -449,13 +449,16 @@ export const confirmPaymentSuccess = async (req, res) => {
             { new: true }
           );
 
-          // Update employer record with subscription reference
+          // Update employer record with subscription reference and enable messaging
           if (activatedSubscription) {
             await Employer.findByIdAndUpdate(
               paymentRecord.employerId,
-              { messagingSubscription: activatedSubscription._id }
+              { 
+                messagingSubscription: activatedSubscription._id,
+                messagesAllowed: true // Automatically enable messaging when subscription is purchased
+              }
             );
-            console.log("✅ Messaging subscription activated:", activatedSubscription._id);
+            console.log("✅ Messaging subscription activated and messaging enabled:", activatedSubscription._id);
           }
         } catch (subscriptionError) {
           console.error(
