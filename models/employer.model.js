@@ -127,6 +127,26 @@ const employerSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'MessagingSubscription',
         required: false
+    },
+    // Direct messaging subscription fields
+    hasDirectMessageSubscription: {
+        type: Boolean,
+        default: false,
+        required: true
+    },
+    directMessagesSentCount: {
+        type: Number,
+        default: 0,
+        required: true,
+        min: 0
+    },
+    directMessageSubscriptionDate: {
+        type: Date,
+        default: null
+    },
+    directMessageSubscriptionExpiryDate: {
+        type: Date,
+        default: null
     }
 }, { timestamps: true });
 

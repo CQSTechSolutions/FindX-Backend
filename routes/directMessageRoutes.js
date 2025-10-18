@@ -1,0 +1,32 @@
+import express from 'express';
+import {
+    getSubscriptionStatus,
+    sendDirectMessage,
+    getConversation,
+    getEmployerConversations,
+    updateSubscriptionStatus,
+    resetMessageCount
+} from '../controllers/directMessageController.js';
+import { protectEmployer } from '../middleware/employerAuth.js';
+
+const router = express.Router();
+
+// Get employer's subscription status and quota
+router.get('/subscription-status', protectEmployer, getSubscriptionStatus);
+
+// Send direct message to candidate
+router.post('/send', protectEmployer, sendDirectMessage);
+
+// Get conversation between employer and specific candidate
+router.get('/conversation/:candidateId', protectEmployer, getConversation);
+
+// Get all conversations for employer
+router.get('/conversations', protectEmployer, getEmployerConversations);
+
+// Reset message count (for subscription renewal)
+router.post('/reset-count', protectEmployer, resetMessageCount);
+
+// Admin routes for subscription management
+router.put('/subscription/:employerId', updateSubscriptionStatus);
+
+export default router;

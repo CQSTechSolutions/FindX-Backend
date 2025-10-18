@@ -29,7 +29,7 @@ const messageSchema = new mongoose.Schema({
     jobId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Job',
-        required: false // Made optional to support user-based messaging
+        required: true
     },
     isRead: {
         type: Boolean,
@@ -77,4 +77,4 @@ messageSchema.virtual('recipient', {
 
 const Message = mongoose.model('Message', messageSchema);
 
-export default Message;
+export default Message; 

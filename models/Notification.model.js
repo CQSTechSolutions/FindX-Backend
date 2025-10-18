@@ -9,7 +9,7 @@ const notificationSchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['job_match', 'application_update', 'interview_invitation', 'profile_completion', 'promotion', 'general'],
+        enum: ['job_match', 'application_update', 'interview_invitation', 'profile_completion', 'promotion', 'general', 'direct_message'],
         required: true
     },
     title: {
@@ -192,4 +192,4 @@ notificationSchema.statics.cleanupExpired = async function() {
 
 const Notification = mongoose.model('Notification', notificationSchema);
 
-export default Notification; 
+export default Notification;

@@ -13,11 +13,7 @@ import {
     getRecentMessages,
     getUserMessages,
     markMessageAsRead,
-    getUserUnreadMessageCount,
-    getUserBasedConversations,
-    getUserBasedConversationHistory,
-    sendUserBasedMessage,
-    markUserBasedMessagesAsRead
+    getUserUnreadMessageCount
 } from '../controllers/messageController.js';
 import { protect } from '../middleware/auth.js';
 import { protectEmployer } from '../middleware/employerAuth.js';
@@ -65,17 +61,5 @@ router.get('/employer/:employerId/can-contact/:userId', protectEmployer, canCont
 
 // Validation and utility routes
 router.post('/validate-permission', protect, validateMessagingPermission);
-
-// User-based messaging routes (without job dependency)
-router.get('/user-based/:userId/:userType/conversations', protect, getUserBasedConversations);
-router.get('/user-based/conversation/:userId1/:userId2', protect, getUserBasedConversationHistory);
-router.post('/user-based/send', protect, sendUserBasedMessage);
-router.put('/user-based/mark-read', protect, markUserBasedMessagesAsRead);
-
-// Employer user-based messaging routes (without job dependency)
-router.get('/employer-user-based/:userId/:userType/conversations', protectEmployer, getUserBasedConversations);
-router.get('/employer-user-based/conversation/:userId1/:userId2', protectEmployer, getUserBasedConversationHistory);
-router.post('/employer-user-based/send', protectEmployer, checkMessagingSubscription, sendUserBasedMessage);
-router.put('/employer-user-based/mark-read', protectEmployer, markUserBasedMessagesAsRead);
 
 export default router;
