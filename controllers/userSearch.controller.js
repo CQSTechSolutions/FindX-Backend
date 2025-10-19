@@ -96,7 +96,7 @@ export const searchUsers = async (req, res) => {
         
         // Execute query with pagination
         const users = await User.find(query)
-            .select('name skills_and_capabilities highest_qualification dream_job_title preferred_job_types work_env_preferences resident_country relocation known_language')
+            .select('name email skills_and_capabilities highest_qualification dream_job_title preferred_job_types work_env_preferences resident_country relocation known_language')
             .skip(skip)
             .limit(parseInt(limit));
             
@@ -235,4 +235,4 @@ export const getSuggestedUsers = async (req, res) => {
             message: 'Server error while fetching suggested users'
         });
     }
-}; 
+};
