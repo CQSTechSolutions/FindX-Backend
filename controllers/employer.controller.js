@@ -279,3 +279,51 @@ export const updateProfile = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// Toggle direct messaging subscription for employer
+export const updateDirectMessageSubscription = async (req, res) => {
+  try {
+    const employerId = req.employer?._id;
+    if (!employerId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const { hasSubscription } = req.body;
+    if (typeof hasSubscription !== "boolean") {
+      return res
+        .status(400)
+        .json({ success: false, message: "hasSubscription must be a boolean" });
+    }
+
+    const updates = {
+      hasDirectMessageSubscription: hasSubscription,
+    };
+
+    if (hasSubscription) {
+      const now = new Date();
+      const expiry = new Date(now);
+      expiry.setDate(expiry.getDate() + 30);
+      updates.directMessageSubscriptionDate = now;
+      updates.directMessageSubscriptionExpiryDate = expiry;
+    } else {
+      updates.directMessageSubscriptionDate = null;
+      updates.directMessageSubscriptionExpiryDate = null;
+    }
+
+    const updatedEmployer = await Employer.findByIdAndUpdate(
+      employerId,
+      updates,
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedEmployer) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Employer not found" });
+    }
+
+    return res.status(200).json({ success: true, employer: updatedEmployer });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
