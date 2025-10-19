@@ -194,7 +194,7 @@ export const getSuggestedUsers = async (req, res) => {
         
         // Find suggested users - if no industry match, get random users
         const suggestedUsers = await User.find(query)
-            .select('name skills_and_capabilities highest_qualification dream_job_title preferred_job_types work_env_preferences resident_country known_language')
+            .select('name email skills_and_capabilities highest_qualification dream_job_title preferred_job_types work_env_preferences resident_country known_language')
             .limit(10);
         
         // If no industry-specific users found, get random users
@@ -204,6 +204,7 @@ export const getSuggestedUsers = async (req, res) => {
                 { 
                     $project: {
                         name: 1,
+                        email: 1,
                         skills_and_capabilities: 1,
                         highest_qualification: 1,
                         dream_job_title: 1,

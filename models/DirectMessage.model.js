@@ -16,9 +16,6 @@ const directMessageSchema = new mongoose.Schema({
     receiverMessageContent: {
         type: [String],
         required: false
-    },
-    dmConfig: {
-        
     }
 });
 

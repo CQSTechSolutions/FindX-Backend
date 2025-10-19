@@ -93,25 +93,36 @@ export const sendDirectMessage = async (req, res) => {
             });
         }
         
-        // Generate conversation ID
-        const conversationId = DirectMessage.generateConversationId(employerId, candidateId);
-        
-        // Check if this is the first message in this conversation
-        const existingMessages = await DirectMessage.countDocuments({ conversationId });
-        const isInitialContact = existingMessages === 0;
-        
-        // Create the direct message
-        const directMessage = new DirectMessage({
-            employer: employerId,
-            candidate: candidateId,
-            message: message.trim(),
-            sender: 'employer',
-            messageType: 'direct',
-            conversationId,
-            isInitialContact
+        // Check if conversation already exists between employer and candidate
+        let existingConversation = await DirectMessage.findOne({
+            $or: [
+                { senderId: employerId, receiverId: candidateId },
+                { senderId: candidateId, receiverId: employerId }
+            ]
         });
         
-        await directMessage.save();
+        const isInitialContact = !existingConversation;
+        
+        if (existingConversation) {
+            // Add message to existing conversation
+            if (existingConversation.senderId === employerId) {
+                // Employer is sender, add to senderMessageContent
+                existingConversation.senderMessageContent.push(message.trim());
+            } else {
+                // Employer is receiver, add to receiverMessageContent
+                existingConversation.receiverMessageContent.push(message.trim());
+            }
+            await existingConversation.save();
+        } else {
+            // Create new conversation with employer as sender
+            existingConversation = new DirectMessage({
+                senderId: employerId,
+                receiverId: candidateId,
+                senderMessageContent: [message.trim()],
+                receiverMessageContent: []
+            });
+            await existingConversation.save();
+        }
         
         // If this is initial contact, increment the employer's sent count and create notification
         if (isInitialContact) {
@@ -126,26 +137,26 @@ export const sendDirectMessage = async (req, res) => {
                 title: 'New Direct Message',
                 message: `${employer.companyName} wants to connect with you directly`,
                 priority: 'medium',
-                actionUrl: `/messages/direct/${conversationId}`,
+                actionUrl: `/messages/direct/${existingConversation._id}`,
                 metadata: {
                     employerId,
-                    conversationId
+                    conversationId: existingConversation._id
                 }
             });
             
             await notification.save();
         }
         
-        // Populate the message for response
-        await directMessage.populate([
-            { path: 'employer', select: 'companyName EmployerName EmployerDesignation companyLogo' },
-            { path: 'candidate', select: 'firstName lastName email profilePicture' }
-        ]);
-        
         res.status(201).json({
             success: true,
             message: 'Direct message sent successfully',
-            data: directMessage
+            data: {
+                conversationId: existingConversation._id,
+                senderId: employerId,
+                receiverId: candidateId,
+                message: message.trim(),
+                isInitialContact
+            }
         });
         
     } catch (error) {
@@ -162,8 +173,6 @@ export const getConversation = async (req, res) => {
     try {
         const employerId = req.employer.id;
         const { candidateId } = req.params;
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 50;
         
         if (!candidateId) {
             return res.status(400).json({
@@ -172,17 +181,103 @@ export const getConversation = async (req, res) => {
             });
         }
         
-        const messages = await DirectMessage.getConversation(employerId, candidateId, page, limit);
+        // Find conversation between employer and candidate
+        const conversation = await DirectMessage.findOne({
+            $or: [
+                { senderId: employerId, receiverId: candidateId },
+                { senderId: candidateId, receiverId: employerId }
+            ]
+        });
         
-        // Mark messages from candidate as read
-        await DirectMessage.markAsRead(
-            DirectMessage.generateConversationId(employerId, candidateId),
-            'employer'
-        );
+        if (!conversation) {
+            return res.status(200).json({
+                success: true,
+                data: {
+                    conversationId: null,
+                    messages: [],
+                    participants: {
+                        employer: employerId,
+                        candidate: candidateId
+                    }
+                }
+            });
+        }
+        
+        // Get participant details
+        const [employer, candidate] = await Promise.all([
+            Employer.findById(employerId).select('companyName EmployerName EmployerDesignation companyLogo'),
+            User.findById(candidateId).select('firstName lastName email profilePicture')
+        ]);
+        
+        // Format messages for response
+        const messages = [];
+        const isEmployerSender = conversation.senderId === employerId;
+        
+        // Add sender messages (from employer's perspective)
+        if (isEmployerSender) {
+            conversation.senderMessageContent.forEach((msg, index) => {
+                messages.push({
+                    id: `sender_${index}`,
+                    content: msg,
+                    sender: 'employer',
+                    senderId: employerId,
+                    timestamp: conversation.createdAt // Using conversation creation time as base
+                });
+            });
+            
+            // Add receiver messages (candidate messages)
+            conversation.receiverMessageContent.forEach((msg, index) => {
+                messages.push({
+                    id: `receiver_${index}`,
+                    content: msg,
+                    sender: 'candidate',
+                    senderId: candidateId,
+                    timestamp: conversation.updatedAt // Using conversation update time as base
+                });
+            });
+        } else {
+            // Employer is receiver, so sender messages are from candidate
+            conversation.senderMessageContent.forEach((msg, index) => {
+                messages.push({
+                    id: `sender_${index}`,
+                    content: msg,
+                    sender: 'candidate',
+                    senderId: candidateId,
+                    timestamp: conversation.createdAt
+                });
+            });
+            
+            // Add receiver messages (employer messages)
+            conversation.receiverMessageContent.forEach((msg, index) => {
+                messages.push({
+                    id: `receiver_${index}`,
+                    content: msg,
+                    sender: 'employer',
+                    senderId: employerId,
+                    timestamp: conversation.updatedAt
+                });
+            });
+        }
+        
+        // Sort messages by timestamp (though they'll be in order anyway)
+        messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
         
         res.status(200).json({
             success: true,
-            data: messages
+            data: {
+                conversationId: conversation._id,
+                messages,
+                participants: {
+                    employer: {
+                        id: employerId,
+                        ...employer?.toObject()
+                    },
+                    candidate: {
+                        id: candidateId,
+                        ...candidate?.toObject()
+                    }
+                }
+            }
         });
         
     } catch (error) {
@@ -202,49 +297,109 @@ export const getEmployerConversations = async (req, res) => {
         const limit = parseInt(req.query.limit) || 20;
         const skip = (page - 1) * limit;
         
-        // Get unique conversations with latest message
-        const conversations = await DirectMessage.aggregate([
-            { $match: { employer: employerId } },
-            { $sort: { createdAt: -1 } },
-            {
-                $group: {
-                    _id: '$conversationId',
-                    latestMessage: { $first: '$$ROOT' },
-                    unreadCount: {
-                        $sum: {
-                            $cond: [
-                                { $and: [{ $eq: ['$sender', 'candidate'] }, { $eq: ['$isRead', false] }] },
-                                1,
-                                0
-                            ]
-                        }
-                    }
+        // Find all conversations where employer is either sender or receiver
+        const conversations = await DirectMessage.find({
+            $or: [
+                { senderId: employerId },
+                { receiverId: employerId }
+            ]
+        })
+        .sort({ updatedAt: -1 })
+        .skip(skip)
+        .limit(limit);
+        
+        if (!conversations.length) {
+            return res.status(200).json({
+                success: true,
+                data: []
+            });
+        }
+        
+        // Get all unique candidate IDs
+        const candidateIds = conversations.map(conv => 
+            conv.senderId === employerId ? conv.receiverId : conv.senderId
+        );
+        
+        // Get candidate details
+        const candidates = await User.find({
+            _id: { $in: candidateIds }
+        }).select('firstName lastName email profilePicture');
+        
+        // Create a map for quick candidate lookup
+        const candidateMap = candidates.reduce((map, candidate) => {
+            map[candidate._id.toString()] = candidate;
+            return map;
+        }, {});
+        
+        // Format conversations for response
+        const formattedConversations = conversations.map(conversation => {
+            const isEmployerSender = conversation.senderId === employerId;
+            const candidateId = isEmployerSender ? conversation.receiverId : conversation.senderId;
+            const candidate = candidateMap[candidateId];
+            
+            // Get the latest message
+            let latestMessage = '';
+            let latestMessageSender = '';
+            
+            if (isEmployerSender) {
+                // Check which array has the most recent message
+                const senderMessages = conversation.senderMessageContent || [];
+                const receiverMessages = conversation.receiverMessageContent || [];
+                
+                if (senderMessages.length > 0 && receiverMessages.length > 0) {
+                    // Use updated timestamp to determine latest
+                    latestMessage = senderMessages[senderMessages.length - 1];
+                    latestMessageSender = 'employer';
+                } else if (senderMessages.length > 0) {
+                    latestMessage = senderMessages[senderMessages.length - 1];
+                    latestMessageSender = 'employer';
+                } else if (receiverMessages.length > 0) {
+                    latestMessage = receiverMessages[receiverMessages.length - 1];
+                    latestMessageSender = 'candidate';
                 }
-            },
-            { $sort: { 'latestMessage.createdAt': -1 } },
-            { $skip: skip },
-            { $limit: limit },
-            {
-                $lookup: {
-                    from: 'users',
-                    localField: 'latestMessage.candidate',
-                    foreignField: '_id',
-                    as: 'candidate'
-                }
-            },
-            {
-                $lookup: {
-                    from: 'employers',
-                    localField: 'latestMessage.employer',
-                    foreignField: '_id',
-                    as: 'employer'
+            } else {
+                // Employer is receiver
+                const senderMessages = conversation.senderMessageContent || [];
+                const receiverMessages = conversation.receiverMessageContent || [];
+                
+                if (senderMessages.length > 0 && receiverMessages.length > 0) {
+                    latestMessage = receiverMessages[receiverMessages.length - 1];
+                    latestMessageSender = 'employer';
+                } else if (receiverMessages.length > 0) {
+                    latestMessage = receiverMessages[receiverMessages.length - 1];
+                    latestMessageSender = 'employer';
+                } else if (senderMessages.length > 0) {
+                    latestMessage = senderMessages[senderMessages.length - 1];
+                    latestMessageSender = 'candidate';
                 }
             }
-        ]);
+            
+            return {
+                conversationId: conversation._id,
+                candidate: {
+                    id: candidateId,
+                    firstName: candidate?.firstName || '',
+                    lastName: candidate?.lastName || '',
+                    email: candidate?.email || '',
+                    profilePicture: candidate?.profilePicture || ''
+                },
+                latestMessage: {
+                    content: latestMessage,
+                    sender: latestMessageSender,
+                    timestamp: conversation.updatedAt
+                },
+                messageCount: {
+                    total: (conversation.senderMessageContent?.length || 0) + (conversation.receiverMessageContent?.length || 0),
+                    fromEmployer: isEmployerSender ? (conversation.senderMessageContent?.length || 0) : (conversation.receiverMessageContent?.length || 0),
+                    fromCandidate: isEmployerSender ? (conversation.receiverMessageContent?.length || 0) : (conversation.senderMessageContent?.length || 0)
+                },
+                lastActivity: conversation.updatedAt
+            };
+        });
         
         res.status(200).json({
             success: true,
-            data: conversations
+            data: formattedConversations
         });
         
     } catch (error) {
@@ -300,6 +455,74 @@ export const updateSubscriptionStatus = async (req, res) => {
         
     } catch (error) {
         console.error('Error updating subscription status:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error'
+        });
+    }
+};
+
+// Send reply from candidate to employer
+export const sendCandidateReply = async (req, res) => {
+    try {
+        const candidateId = req.user.id; // Assuming candidate auth middleware sets req.user
+        const { employerId, message } = req.body;
+        
+        if (!employerId || !message) {
+            return res.status(400).json({
+                success: false,
+                message: 'Employer ID and message are required'
+            });
+        }
+        
+        // Verify employer exists
+        const employer = await Employer.findById(employerId);
+        if (!employer) {
+            return res.status(404).json({
+                success: false,
+                message: 'Employer not found'
+            });
+        }
+        
+        // Find existing conversation
+        let conversation = await DirectMessage.findOne({
+            $or: [
+                { senderId: employerId, receiverId: candidateId },
+                { senderId: candidateId, receiverId: employerId }
+            ]
+        });
+        
+        if (!conversation) {
+            return res.status(404).json({
+                success: false,
+                message: 'No existing conversation found. Employer must initiate contact first.'
+            });
+        }
+        
+        // Add candidate's reply to the appropriate array
+        if (conversation.senderId === candidateId) {
+            // Candidate is sender, add to senderMessageContent
+            conversation.senderMessageContent.push(message.trim());
+        } else {
+            // Candidate is receiver, add to receiverMessageContent
+            conversation.receiverMessageContent.push(message.trim());
+        }
+        
+        await conversation.save();
+        
+        res.status(201).json({
+            success: true,
+            message: 'Reply sent successfully',
+            data: {
+                conversationId: conversation._id,
+                senderId: candidateId,
+                receiverId: employerId,
+                message: message.trim()
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error sending candidate reply:', error);
         res.status(500).json({
             success: false,
             message: 'Internal server error'

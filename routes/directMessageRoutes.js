@@ -5,7 +5,8 @@ import {
     getConversation,
     getEmployerConversations,
     updateSubscriptionStatus,
-    resetMessageCount
+    resetMessageCount,
+    sendCandidateReply
 } from '../controllers/directMessageController.js';
 import { protectEmployer } from '../middleware/employerAuth.js';
 
@@ -16,6 +17,10 @@ router.get('/subscription-status', protectEmployer, getSubscriptionStatus);
 
 // Send direct message to candidate
 router.post('/send', protectEmployer, sendDirectMessage);
+
+// Send reply from candidate to employer (requires candidate auth middleware)
+// Note: This route would need candidate authentication middleware instead of protectEmployer
+// router.post('/reply', protectCandidate, sendCandidateReply);
 
 // Get conversation between employer and specific candidate
 router.get('/conversation/:candidateId', protectEmployer, getConversation);
