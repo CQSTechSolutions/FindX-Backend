@@ -322,7 +322,7 @@ export const getEmployerConversations = async (req, res) => {
         // Get candidate details
         const candidates = await User.find({
             _id: { $in: candidateIds }
-        }).select('firstName lastName email profilePicture');
+        }).select('name email');
         
         // Create a map for quick candidate lookup
         const candidateMap = candidates.reduce((map, candidate) => {
@@ -339,10 +339,8 @@ export const getEmployerConversations = async (req, res) => {
                 conversationId: conversation._id,
                 candidate: {
                     id: candidateId,
-                    firstName: candidate?.firstName || '',
-                    lastName: candidate?.lastName || '',
+                    name: candidate?.name || '',
                     email: candidate?.email || '',
-                    profilePicture: candidate?.profilePicture || ''
                 },
                 lastMessage: {
                     content: conversation.lastMessage?.content || '',
