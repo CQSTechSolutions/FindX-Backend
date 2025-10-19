@@ -4,7 +4,7 @@ import User from '../models/User.js';
 import Notification from '../models/Notification.model.js';
 
 // Constants
-const DIRECT_MESSAGE_LIMIT = 5;
+const DIRECT_MESSAGE_LIMIT = 100; // Monthly limit for direct messages
 
 // Get employer's direct message subscription status and quota
 export const getSubscriptionStatus = async (req, res) => {
@@ -50,7 +50,7 @@ export const getSubscriptionStatus = async (req, res) => {
 export const sendDirectMessage = async (req, res) => {
     try {
         const employerId = req.employer.id;
-        const { candidateId, message } = req.body;
+        const { candidateId, message, messageType = 'text' } = req.body;
         
         if (!candidateId || !message) {
             return res.status(400).json({
@@ -93,35 +93,41 @@ export const sendDirectMessage = async (req, res) => {
             });
         }
         
-        // Check if conversation already exists between employer and candidate
-        let existingConversation = await DirectMessage.findOne({
-            $or: [
-                { senderId: employerId, receiverId: candidateId },
-                { senderId: candidateId, receiverId: employerId }
-            ]
-        });
+        // Check if conversation already exists using the new static method
+        let conversation = await DirectMessage.findConversation(employerId, candidateId);
         
-        const isInitialContact = !existingConversation;
+        const isInitialContact = !conversation;
         
-        if (existingConversation) {
-            // Add message to existing conversation
-            if (existingConversation.senderId === employerId) {
-                // Employer is sender, add to senderMessageContent
-                existingConversation.senderMessageContent.push(message.trim());
-            } else {
-                // Employer is receiver, add to receiverMessageContent
-                existingConversation.receiverMessageContent.push(message.trim());
-            }
-            await existingConversation.save();
+        if (conversation) {
+            // Add message to existing conversation using the new instance method
+            await conversation.addMessage(employerId, message.trim(), messageType);
         } else {
-            // Create new conversation with employer as sender
-            existingConversation = new DirectMessage({
-                senderId: employerId,
-                receiverId: candidateId,
-                senderMessageContent: [message.trim()],
-                receiverMessageContent: []
+            // Create new conversation with optimized structure
+            conversation = new DirectMessage({
+                participants: {
+                    employer: employerId,
+                    candidate: candidateId
+                },
+                messages: [{
+                    content: message.trim(),
+                    senderId: employerId,
+                    messageType,
+                    timestamp: new Date(),
+                    isRead: false
+                }],
+                lastMessage: {
+                    content: message.trim(),
+                    senderId: employerId,
+                    timestamp: new Date()
+                },
+                messageCount: {
+                    total: 1,
+                    unread: 1
+                },
+                status: 'active',
+                isInitialContact: true
             });
-            await existingConversation.save();
+            await conversation.save();
         }
         
         // If this is initial contact, increment the employer's sent count and create notification
@@ -137,10 +143,10 @@ export const sendDirectMessage = async (req, res) => {
                 title: 'New Direct Message',
                 message: `${employer.companyName} wants to connect with you directly`,
                 priority: 'medium',
-                actionUrl: `/messages/direct/${existingConversation._id}`,
+                actionUrl: `/messages/direct/${conversation._id}`,
                 metadata: {
                     employerId,
-                    conversationId: existingConversation._id
+                    conversationId: conversation._id
                 }
             });
             
@@ -151,10 +157,12 @@ export const sendDirectMessage = async (req, res) => {
             success: true,
             message: 'Direct message sent successfully',
             data: {
-                conversationId: existingConversation._id,
+                conversationId: conversation._id,
                 senderId: employerId,
                 receiverId: candidateId,
                 message: message.trim(),
+                messageType,
+                timestamp: new Date(),
                 isInitialContact
             }
         });
@@ -173,6 +181,8 @@ export const getConversation = async (req, res) => {
     try {
         const employerId = req.employer.id;
         const { candidateId } = req.params;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 50;
         
         if (!candidateId) {
             return res.status(400).json({
@@ -181,13 +191,8 @@ export const getConversation = async (req, res) => {
             });
         }
         
-        // Find conversation between employer and candidate
-        const conversation = await DirectMessage.findOne({
-            $or: [
-                { senderId: employerId, receiverId: candidateId },
-                { senderId: candidateId, receiverId: employerId }
-            ]
-        });
+        // Find conversation using the new static method
+        const conversation = await DirectMessage.findConversation(employerId, candidateId);
         
         if (!conversation) {
             return res.status(200).json({
@@ -198,6 +203,12 @@ export const getConversation = async (req, res) => {
                     participants: {
                         employer: employerId,
                         candidate: candidateId
+                    },
+                    pagination: {
+                        page,
+                        limit,
+                        total: 0,
+                        totalPages: 0
                     }
                 }
             });
@@ -209,58 +220,33 @@ export const getConversation = async (req, res) => {
             User.findById(candidateId).select('firstName lastName email profilePicture')
         ]);
         
+        // Calculate pagination for messages
+        const totalMessages = conversation.messages.length;
+        const totalPages = Math.ceil(totalMessages / limit);
+        const skip = (page - 1) * limit;
+        
+        // Get paginated messages (most recent first)
+        const paginatedMessages = conversation.messages
+            .slice()
+            .reverse() // Most recent first
+            .slice(skip, skip + limit)
+            .reverse(); // Back to chronological order for display
+        
         // Format messages for response
-        const messages = [];
-        const isEmployerSender = conversation.senderId === employerId;
+        const messages = paginatedMessages.map((msg, index) => ({
+            id: msg._id,
+            content: msg.content,
+            senderId: msg.senderId,
+            sender: msg.senderId.toString() === employerId ? 'employer' : 'candidate',
+            messageType: msg.messageType,
+            timestamp: msg.timestamp,
+            isRead: msg.isRead
+        }));
         
-        // Add sender messages (from employer's perspective)
-        if (isEmployerSender) {
-            conversation.senderMessageContent.forEach((msg, index) => {
-                messages.push({
-                    id: `sender_${index}`,
-                    content: msg,
-                    sender: 'employer',
-                    senderId: employerId,
-                    timestamp: conversation.createdAt // Using conversation creation time as base
-                });
-            });
-            
-            // Add receiver messages (candidate messages)
-            conversation.receiverMessageContent.forEach((msg, index) => {
-                messages.push({
-                    id: `receiver_${index}`,
-                    content: msg,
-                    sender: 'candidate',
-                    senderId: candidateId,
-                    timestamp: conversation.updatedAt // Using conversation update time as base
-                });
-            });
-        } else {
-            // Employer is receiver, so sender messages are from candidate
-            conversation.senderMessageContent.forEach((msg, index) => {
-                messages.push({
-                    id: `sender_${index}`,
-                    content: msg,
-                    sender: 'candidate',
-                    senderId: candidateId,
-                    timestamp: conversation.createdAt
-                });
-            });
-            
-            // Add receiver messages (employer messages)
-            conversation.receiverMessageContent.forEach((msg, index) => {
-                messages.push({
-                    id: `receiver_${index}`,
-                    content: msg,
-                    sender: 'employer',
-                    senderId: employerId,
-                    timestamp: conversation.updatedAt
-                });
-            });
+        // Mark messages as read for the employer
+        if (conversation.messageCount.unread > 0) {
+            await conversation.markMessagesAsRead(employerId);
         }
-        
-        // Sort messages by timestamp (though they'll be in order anyway)
-        messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
         
         res.status(200).json({
             success: true,
@@ -276,6 +262,17 @@ export const getConversation = async (req, res) => {
                         id: candidateId,
                         ...candidate?.toObject()
                     }
+                },
+                lastMessage: conversation.lastMessage,
+                messageCount: conversation.messageCount,
+                status: conversation.status,
+                pagination: {
+                    page,
+                    limit,
+                    total: totalMessages,
+                    totalPages,
+                    hasNext: page < totalPages,
+                    hasPrev: page > 1
                 }
             }
         });
@@ -295,30 +292,27 @@ export const getEmployerConversations = async (req, res) => {
         const employerId = req.employer.id;
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
-        const skip = (page - 1) * limit;
         
-        // Find all conversations where employer is either sender or receiver
-        const conversations = await DirectMessage.find({
-            $or: [
-                { senderId: employerId },
-                { receiverId: employerId }
-            ]
-        })
-        .sort({ updatedAt: -1 })
-        .skip(skip)
-        .limit(limit);
+        // Use the new static method for getting employer conversations with pagination
+        const result = await DirectMessage.getEmployerConversations(employerId, page, limit);
         
-        if (!conversations.length) {
+        if (!result.conversations.length) {
             return res.status(200).json({
                 success: true,
-                data: []
+                data: [],
+                pagination: {
+                    page,
+                    limit,
+                    total: 0,
+                    totalPages: 0,
+                    hasNext: false,
+                    hasPrev: false
+                }
             });
         }
         
         // Get all unique candidate IDs
-        const candidateIds = conversations.map(conv => 
-            conv.senderId === employerId ? conv.receiverId : conv.senderId
-        );
+        const candidateIds = result.conversations.map(conv => conv.participants.candidate);
         
         // Get candidate details
         const candidates = await User.find({
@@ -332,47 +326,9 @@ export const getEmployerConversations = async (req, res) => {
         }, {});
         
         // Format conversations for response
-        const formattedConversations = conversations.map(conversation => {
-            const isEmployerSender = conversation.senderId === employerId;
-            const candidateId = isEmployerSender ? conversation.receiverId : conversation.senderId;
-            const candidate = candidateMap[candidateId];
-            
-            // Get the latest message
-            let latestMessage = '';
-            let latestMessageSender = '';
-            
-            if (isEmployerSender) {
-                // Check which array has the most recent message
-                const senderMessages = conversation.senderMessageContent || [];
-                const receiverMessages = conversation.receiverMessageContent || [];
-                
-                if (senderMessages.length > 0 && receiverMessages.length > 0) {
-                    // Use updated timestamp to determine latest
-                    latestMessage = senderMessages[senderMessages.length - 1];
-                    latestMessageSender = 'employer';
-                } else if (senderMessages.length > 0) {
-                    latestMessage = senderMessages[senderMessages.length - 1];
-                    latestMessageSender = 'employer';
-                } else if (receiverMessages.length > 0) {
-                    latestMessage = receiverMessages[receiverMessages.length - 1];
-                    latestMessageSender = 'candidate';
-                }
-            } else {
-                // Employer is receiver
-                const senderMessages = conversation.senderMessageContent || [];
-                const receiverMessages = conversation.receiverMessageContent || [];
-                
-                if (senderMessages.length > 0 && receiverMessages.length > 0) {
-                    latestMessage = receiverMessages[receiverMessages.length - 1];
-                    latestMessageSender = 'employer';
-                } else if (receiverMessages.length > 0) {
-                    latestMessage = receiverMessages[receiverMessages.length - 1];
-                    latestMessageSender = 'employer';
-                } else if (senderMessages.length > 0) {
-                    latestMessage = senderMessages[senderMessages.length - 1];
-                    latestMessageSender = 'candidate';
-                }
-            }
+        const formattedConversations = result.conversations.map(conversation => {
+            const candidateId = conversation.participants.candidate;
+            const candidate = candidateMap[candidateId.toString()];
             
             return {
                 conversationId: conversation._id,
@@ -383,23 +339,23 @@ export const getEmployerConversations = async (req, res) => {
                     email: candidate?.email || '',
                     profilePicture: candidate?.profilePicture || ''
                 },
-                latestMessage: {
-                    content: latestMessage,
-                    sender: latestMessageSender,
-                    timestamp: conversation.updatedAt
+                lastMessage: {
+                    content: conversation.lastMessage.content,
+                    senderId: conversation.lastMessage.senderId,
+                    sender: conversation.lastMessage.senderId.toString() === employerId ? 'employer' : 'candidate',
+                    timestamp: conversation.lastMessage.timestamp
                 },
-                messageCount: {
-                    total: (conversation.senderMessageContent?.length || 0) + (conversation.receiverMessageContent?.length || 0),
-                    fromEmployer: isEmployerSender ? (conversation.senderMessageContent?.length || 0) : (conversation.receiverMessageContent?.length || 0),
-                    fromCandidate: isEmployerSender ? (conversation.receiverMessageContent?.length || 0) : (conversation.senderMessageContent?.length || 0)
-                },
+                messageCount: conversation.messageCount,
+                status: conversation.status,
+                isInitialContact: conversation.isInitialContact,
                 lastActivity: conversation.updatedAt
             };
         });
         
         res.status(200).json({
             success: true,
-            data: formattedConversations
+            data: formattedConversations,
+            pagination: result.pagination
         });
         
     } catch (error) {
@@ -466,7 +422,7 @@ export const updateSubscriptionStatus = async (req, res) => {
 export const sendCandidateReply = async (req, res) => {
     try {
         const candidateId = req.user.id; // Assuming candidate auth middleware sets req.user
-        const { employerId, message } = req.body;
+        const { employerId, message, messageType = 'text' } = req.body;
         
         if (!employerId || !message) {
             return res.status(400).json({
@@ -484,13 +440,8 @@ export const sendCandidateReply = async (req, res) => {
             });
         }
         
-        // Find existing conversation
-        let conversation = await DirectMessage.findOne({
-            $or: [
-                { senderId: employerId, receiverId: candidateId },
-                { senderId: candidateId, receiverId: employerId }
-            ]
-        });
+        // Find existing conversation using the new static method
+        let conversation = await DirectMessage.findConversation(employerId, candidateId);
         
         if (!conversation) {
             return res.status(404).json({
@@ -499,16 +450,8 @@ export const sendCandidateReply = async (req, res) => {
             });
         }
         
-        // Add candidate's reply to the appropriate array
-        if (conversation.senderId === candidateId) {
-            // Candidate is sender, add to senderMessageContent
-            conversation.senderMessageContent.push(message.trim());
-        } else {
-            // Candidate is receiver, add to receiverMessageContent
-            conversation.receiverMessageContent.push(message.trim());
-        }
-        
-        await conversation.save();
+        // Add candidate's reply using the new instance method
+        await conversation.addMessage(candidateId, message.trim(), messageType);
         
         res.status(201).json({
             success: true,
@@ -517,7 +460,9 @@ export const sendCandidateReply = async (req, res) => {
                 conversationId: conversation._id,
                 senderId: candidateId,
                 receiverId: employerId,
-                message: message.trim()
+                message: message.trim(),
+                messageType,
+                timestamp: new Date()
             }
         });
         
