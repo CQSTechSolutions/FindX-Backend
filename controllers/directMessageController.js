@@ -100,7 +100,8 @@ export const sendDirectMessage = async (req, res) => {
         
         if (conversation) {
             // Add message to existing conversation using the new instance method
-            await conversation.addMessage(employerId, message.trim(), messageType);
+            conversation.addMessage(message.trim(), employerId, messageType);
+            await conversation.save();
         } else {
             // Create new conversation with optimized structure
             conversation = new DirectMessage({
@@ -122,7 +123,8 @@ export const sendDirectMessage = async (req, res) => {
                 },
                 messageCount: {
                     total: 1,
-                    unread: 1
+                    unreadByEmployer: 0,
+                    unreadByCandidate: 1
                 },
                 status: 'active',
                 isInitialContact: true
@@ -244,9 +246,8 @@ export const getConversation = async (req, res) => {
         }));
         
         // Mark messages as read for the employer
-        if (conversation.messageCount.unread > 0) {
-            await conversation.markMessagesAsRead(employerId);
-        }
+        await conversation.markMessagesAsRead(employerId);
+        await conversation.save();
         
         res.status(200).json({
             success: true,
@@ -292,18 +293,22 @@ export const getEmployerConversations = async (req, res) => {
         const employerId = req.employer.id;
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
-        
-        // Use the new static method for getting employer conversations with pagination
-        const result = await DirectMessage.getEmployerConversations(employerId, page, limit);
-        
-        if (!result.conversations.length) {
+        const status = 'active';
+
+        // Fetch conversations and total count
+        const [conversations, total] = await Promise.all([
+            DirectMessage.getEmployerConversations(employerId, { page, limit, status }),
+            DirectMessage.countDocuments({ 'participants.employer': employerId, status })
+        ]);
+
+        if (!conversations.length) {
             return res.status(200).json({
                 success: true,
                 data: [],
                 pagination: {
                     page,
                     limit,
-                    total: 0,
+                    total,
                     totalPages: 0,
                     hasNext: false,
                     hasPrev: false
@@ -312,7 +317,7 @@ export const getEmployerConversations = async (req, res) => {
         }
         
         // Get all unique candidate IDs
-        const candidateIds = result.conversations.map(conv => conv.participants.candidate);
+        const candidateIds = conversations.map(conv => conv.participants.candidate);
         
         // Get candidate details
         const candidates = await User.find({
@@ -326,7 +331,7 @@ export const getEmployerConversations = async (req, res) => {
         }, {});
         
         // Format conversations for response
-        const formattedConversations = result.conversations.map(conversation => {
+        const formattedConversations = conversations.map(conversation => {
             const candidateId = conversation.participants.candidate;
             const candidate = candidateMap[candidateId.toString()];
             
@@ -340,10 +345,10 @@ export const getEmployerConversations = async (req, res) => {
                     profilePicture: candidate?.profilePicture || ''
                 },
                 lastMessage: {
-                    content: conversation.lastMessage.content,
-                    senderId: conversation.lastMessage.senderId,
-                    sender: conversation.lastMessage.senderId.toString() === employerId ? 'employer' : 'candidate',
-                    timestamp: conversation.lastMessage.timestamp
+                    content: conversation.lastMessage?.content || '',
+                    senderId: conversation.lastMessage?.senderId || '',
+                    sender: conversation.lastMessage?.senderId && conversation.lastMessage.senderId.toString() === employerId ? 'employer' : 'candidate',
+                    timestamp: conversation.lastMessage?.timestamp || conversation.updatedAt
                 },
                 messageCount: conversation.messageCount,
                 status: conversation.status,
@@ -352,10 +357,18 @@ export const getEmployerConversations = async (req, res) => {
             };
         });
         
+        const totalPages = Math.ceil(total / limit) || 1;
         res.status(200).json({
             success: true,
             data: formattedConversations,
-            pagination: result.pagination
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages,
+                hasNext: page < totalPages,
+                hasPrev: page > 1
+            }
         });
         
     } catch (error) {
