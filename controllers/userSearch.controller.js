@@ -15,6 +15,16 @@ export const searchUsers = async (req, res) => {
             workEnv, 
             languages,
             keyword,
+            gender,
+            nationality,
+            workDomain,
+            relocationWilling,
+            travelWilling,
+            timeZone,
+            hasResume,
+            experienceLevel,
+            hobbies,
+            achievements,
             limit = 10,
             page = 1
         } = req.query;
@@ -86,6 +96,139 @@ export const searchUsers = async (req, res) => {
             });
         }
 
+        // Search by gender
+        if (gender) {
+            const genderArray = gender.split(',').map(g => g.trim());
+            andConditions.push({
+                gender: { $in: genderArray }
+            });
+        }
+
+        // Search by nationality
+        if (nationality) {
+            andConditions.push({
+                nationality: { $regex: nationality, $options: 'i' }
+            });
+        }
+
+        // Search by work domain
+        if (workDomain) {
+            andConditions.push({
+                work_domain: { $regex: workDomain, $options: 'i' }
+            });
+        }
+
+        // Search by relocation willingness
+        if (relocationWilling !== undefined && relocationWilling !== '') {
+            andConditions.push({
+                'relocation.willing_to_relocate': relocationWilling === 'true'
+            });
+        }
+
+        // Search by travel willingness
+        if (travelWilling !== undefined && travelWilling !== '') {
+            andConditions.push({
+                'relocation.willing_to_travel': travelWilling === 'true'
+            });
+        }
+
+        // Search by time zone
+        if (timeZone) {
+            andConditions.push({
+                preferred_time_zone: { $regex: timeZone, $options: 'i' }
+            });
+        }
+
+        // Search by resume status
+        if (hasResume !== undefined && hasResume !== '') {
+            if (hasResume === 'true') {
+                andConditions.push({
+                    $or: [
+                        { resume: { $exists: true, $ne: null, $ne: '' } },
+                        { resumes: { $exists: true, $not: { $size: 0 } } }
+                    ]
+                });
+            } else {
+                andConditions.push({
+                    $and: [
+                        { $or: [{ resume: { $exists: false } }, { resume: null }, { resume: '' }] },
+                        { $or: [{ resumes: { $exists: false } }, { resumes: { $size: 0 } }] }
+                    ]
+                });
+            }
+        }
+
+        // Search by experience level (based on work history length)
+        if (experienceLevel) {
+            const now = new Date();
+            const experienceConditions = [];
+            
+            if (experienceLevel === 'entry') {
+                // 0-2 years experience
+                const twoYearsAgo = new Date(now.getFullYear() - 2, now.getMonth(), now.getDate());
+                experienceConditions.push({
+                    $expr: {
+                        $lt: [
+                            { $max: '$work_history.past_job_start_date' },
+                            twoYearsAgo
+                        ]
+                    }
+                });
+            } else if (experienceLevel === 'mid') {
+                // 3-5 years experience
+                const fiveYearsAgo = new Date(now.getFullYear() - 5, now.getMonth(), now.getDate());
+                const threeYearsAgo = new Date(now.getFullYear() - 3, now.getMonth(), now.getDate());
+                experienceConditions.push({
+                    $expr: {
+                        $and: [
+                            { $gte: [{ $max: '$work_history.past_job_start_date' }, threeYearsAgo] },
+                            { $lt: [{ $max: '$work_history.past_job_start_date' }, fiveYearsAgo] }
+                        ]
+                    }
+                });
+            } else if (experienceLevel === 'senior') {
+                // 6-10 years experience
+                const tenYearsAgo = new Date(now.getFullYear() - 10, now.getMonth(), now.getDate());
+                const sixYearsAgo = new Date(now.getFullYear() - 6, now.getMonth(), now.getDate());
+                experienceConditions.push({
+                    $expr: {
+                        $and: [
+                            { $gte: [{ $max: '$work_history.past_job_start_date' }, sixYearsAgo] },
+                            { $lt: [{ $max: '$work_history.past_job_start_date' }, tenYearsAgo] }
+                        ]
+                    }
+                });
+            } else if (experienceLevel === 'executive') {
+                // 10+ years experience
+                const tenYearsAgo = new Date(now.getFullYear() - 10, now.getMonth(), now.getDate());
+                experienceConditions.push({
+                    $expr: {
+                        $gte: [{ $max: '$work_history.past_job_start_date' }, tenYearsAgo]
+                    }
+                });
+            }
+            
+            if (experienceConditions.length > 0) {
+                andConditions.push({ $or: experienceConditions });
+            }
+        }
+
+        // Search by hobbies
+        if (hobbies) {
+            const hobbiesArray = hobbies.split(',').map(hobby => hobby.trim());
+            andConditions.push({
+                hobbies: { $in: hobbiesArray.map(hobby => new RegExp(hobby, 'i')) }
+            });
+        }
+
+        // Search by achievements
+        if (achievements) {
+            const achievementsArray = achievements.split(',').map(achievement => achievement.trim());
+            andConditions.push({
+                achievements: { $in: achievementsArray.map(achievement => new RegExp(achievement, 'i')) }
+            });
+        }
+
         // Combine all conditions
         if (andConditions.length > 0) {
             query.$and = andConditions;
@@ -96,7 +239,7 @@ export const searchUsers = async (req, res) => {
         
         // Execute query with pagination
         const users = await User.find(query)
-            .select('name email skills_and_capabilities highest_qualification dream_job_title preferred_job_types work_env_preferences resident_country relocation known_language')
+            .select('name email skills_and_capabilities highest_qualification dream_job_title preferred_job_types work_env_preferences resident_country relocation known_language gender nationality work_domain preferred_time_zone hobbies achievements work_history')
             .skip(skip)
             .limit(parseInt(limit));
             
