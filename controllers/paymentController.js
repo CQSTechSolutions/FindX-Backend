@@ -441,7 +441,8 @@ export const confirmPaymentSuccess = async (req, res) => {
               directMessagePaymentStatus: 'paid',
               directMessagePaymentDate: new Date(),
               hasDirectMessageSubscription: true,
-              messagesAllowed: true
+              messagesAllowed: true,
+              directMessagesSentCount: 0
             }
           );
           console.log("✅ Direct messaging subscription activated for employer:", paymentRecord.employerId);
@@ -731,7 +732,8 @@ export const createDirectMessagePayment = async (req, res) => {
       metadata: {
         type: "direct_message_subscription",
         employerId: employerId,
-        companyName: employer.companyName
+        companyName: employer.companyName,
+        messageLimit: 5
       },
       description: `Direct Messaging Subscription - ${employer.companyName}`,
       automatic_payment_methods: {

@@ -5,7 +5,7 @@ import Notification from '../models/Notification.model.js';
 import mongoose from 'mongoose';
 
 // Constants
-const DIRECT_MESSAGE_LIMIT = 100; // Monthly limit for direct messages
+const DIRECT_MESSAGE_LIMIT = 5; // Pack limit for direct messages
 
 // Get employer's direct message subscription status and quota
 export const getSubscriptionStatus = async (req, res) => {
@@ -81,7 +81,7 @@ export const sendDirectMessage = async (req, res) => {
         if (employer.directMessagesSentCount >= DIRECT_MESSAGE_LIMIT) {
             return res.status(403).json({
                 success: false,
-                message: 'Direct message limit reached. Please upgrade your subscription.'
+                message: 'Direct message limit reached (5). Purchase another pack to continue.'
             });
         }
         
