@@ -2,6 +2,7 @@ import DirectMessage from '../models/DirectMessage.model.js';
 import Employer from '../models/employer.model.js';
 import User from '../models/User.js';
 import Notification from '../models/Notification.model.js';
+import mongoose from 'mongoose';
 
 // Constants
 const DIRECT_MESSAGE_LIMIT = 100; // Monthly limit for direct messages
@@ -319,23 +320,43 @@ export const getEmployerConversations = async (req, res) => {
         // Get all unique candidate IDs
         const candidateIds = conversations.map(conv => conv.participants.candidate);
         
+        console.log('Candidate IDs from conversations:', candidateIds);
+        console.log('Candidate ID types:', candidateIds.map(id => typeof id));
+        
+        // Convert string IDs to ObjectIds if needed
+        const objectIdCandidateIds = candidateIds.map(id => {
+            if (typeof id === 'string') {
+                return new mongoose.Types.ObjectId(id);
+            }
+            return id;
+        });
+        
+        console.log('Converted candidate IDs:', objectIdCandidateIds);
+        
         // Get candidate details
         const candidates = await User.find({
-            _id: { $in: candidateIds }
+            _id: { $in: objectIdCandidateIds }
         }).select('name email');
+        
+        console.log('Found candidates:', candidates);
+        console.log('Candidate IDs:', candidateIds);
         
         // Create a map for quick candidate lookup
         const candidateMap = candidates.reduce((map, candidate) => {
+            // Map both string and ObjectId versions for lookup
             map[candidate._id.toString()] = candidate;
+            map[candidate._id] = candidate;
             return map;
         }, {});
+        
+        console.log('Candidate map:', candidateMap);
         
         // Format conversations for response
         const formattedConversations = conversations.map(conversation => {
             const candidateId = conversation.participants.candidate;
             const candidate = candidateMap[candidateId.toString()];
             
-            return {
+            const formattedConv = {
                 conversationId: conversation._id,
                 candidate: {
                     id: candidateId,
@@ -353,6 +374,9 @@ export const getEmployerConversations = async (req, res) => {
                 isInitialContact: conversation.isInitialContact,
                 lastActivity: conversation.updatedAt
             };
+            
+            console.log(`Formatted conversation for candidate ${candidateId}:`, formattedConv);
+            return formattedConv;
         });
         
         const totalPages = Math.ceil(total / limit) || 1;
