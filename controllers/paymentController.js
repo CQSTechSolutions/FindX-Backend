@@ -431,8 +431,26 @@ export const confirmPaymentSuccess = async (req, res) => {
         }
       }
 
+      // Handle direct messaging subscription payments
+      if (paymentRecord.type === "direct_message_subscription") {
+        try {
+          // Update employer with paid status and enable direct messaging
+          await Employer.findByIdAndUpdate(
+            paymentRecord.employerId,
+            {
+              directMessagePaymentStatus: 'paid',
+              directMessagePaymentDate: new Date(),
+              hasDirectMessageSubscription: true,
+              messagesAllowed: true
+            }
+          );
+          console.log("✅ Direct messaging subscription activated for employer:", paymentRecord.employerId);
+        } catch (subscriptionError) {
+          console.error("Error activating direct messaging subscription:", subscriptionError);
+        }
+      }
       // Handle messaging subscription payments
-      if (paymentRecord.type === "messaging_subscription" && paymentRecord.messagingSubscriptionId) {
+      else if (paymentRecord.type === "messaging_subscription" && paymentRecord.messagingSubscriptionId) {
         try {
           // Activate the messaging subscription
           activatedSubscription = await MessagingSubscription.findByIdAndUpdate(
@@ -639,6 +657,124 @@ export const createMessagingSubscriptionPayment = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to create messaging subscription payment",
+      error: error.message,
+    });
+  }
+};
+
+// Create payment intent for direct messaging subscription ($49)
+export const createDirectMessagePayment = async (req, res) => {
+  try {
+    checkStripeAvailable();
+
+    const { employerId, amount = 4900, currency = 'aud' } = req.body;
+
+    // Validate input
+    if (!employerId) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required field: employerId",
+      });
+    }
+
+    // Convert employerId to ObjectId if it's a valid string
+    let objectIdEmployerId = employerId;
+    if (
+      typeof employerId === "string" &&
+      mongoose.Types.ObjectId.isValid(employerId)
+    ) {
+      objectIdEmployerId = new mongoose.Types.ObjectId(employerId);
+    }
+
+    // Check if employer exists
+    const employer = await Employer.findById(objectIdEmployerId);
+    if (!employer) {
+      return res.status(404).json({
+        success: false,
+        message: "Employer not found",
+      });
+    }
+
+    // Check if employer already has paid for direct messaging
+    if (employer.directMessagePaymentStatus === 'paid') {
+      return res.status(400).json({
+        success: false,
+        message: "Direct messaging subscription already purchased",
+        alreadyPaid: true
+      });
+    }
+
+    // Create or get Stripe customer
+    let customerId = employer.stripeCustomerId;
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: employer.email,
+        name: employer.EmployerName,
+        metadata: {
+          employerId: employerId,
+          companyName: employer.companyName
+        }
+      });
+      customerId = customer.id;
+      
+      // Update employer with customer ID
+      await Employer.findByIdAndUpdate(objectIdEmployerId, {
+        stripeCustomerId: customerId
+      });
+    }
+
+    // Create payment intent
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amount,
+      currency: currency,
+      customer: customerId,
+      metadata: {
+        type: "direct_message_subscription",
+        employerId: employerId,
+        companyName: employer.companyName
+      },
+      description: `Direct Messaging Subscription - ${employer.companyName}`,
+      automatic_payment_methods: {
+        enabled: true,
+      },
+    });
+
+    // Create payment record
+    const paymentRecord = new Payment({
+      employerId: objectIdEmployerId,
+      stripePaymentIntentId: paymentIntent.id,
+      stripeCustomerId: customerId,
+      amount: amount,
+      currency: currency,
+      type: "direct_message_subscription",
+      status: "pending",
+      metadata: {
+        subscriptionType: 'direct_messaging',
+        companyName: employer.companyName
+      },
+    });
+
+    await paymentRecord.save();
+
+    // Update employer payment status to pending
+    await Employer.findByIdAndUpdate(objectIdEmployerId, {
+      directMessagePaymentStatus: 'pending',
+      directMessagePaymentId: paymentRecord._id
+    });
+
+    res.json({
+      success: true,
+      client_secret: paymentIntent.client_secret,
+      paymentIntentId: paymentIntent.id,
+      amount: amount,
+      currency: currency,
+      paymentRecordId: paymentRecord._id
+    });
+  } catch (error) {
+    console.error("Error creating direct message payment:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to create direct message payment",
       error: error.message,
     });
   }

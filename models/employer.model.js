@@ -147,6 +147,33 @@ const employerSchema = new mongoose.Schema({
     directMessageSubscriptionExpiryDate: {
         type: Date,
         default: null
+    },
+    // Payment-related fields for direct messaging
+    directMessagePaymentStatus: {
+        type: String,
+        enum: ['unpaid', 'pending', 'paid', 'failed'],
+        default: 'unpaid'
+    },
+    directMessagePaymentId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Payment',
+        default: null
+    },
+    directMessagePaymentDate: {
+        type: Date,
+        default: null
+    },
+    directMessagePaymentAmount: {
+        type: Number,
+        default: 4900 // $49.00 in cents
+    },
+    directMessagePaymentCurrency: {
+        type: String,
+        default: 'aud'
+    },
+    stripeCustomerId: {
+        type: String,
+        default: null
     }
 }, { timestamps: true });
 

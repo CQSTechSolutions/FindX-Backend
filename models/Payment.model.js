@@ -30,7 +30,7 @@ const paymentSchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['job_posting', 'notification_package', 'subscription', 'messaging_subscription'],
+        enum: ['job_posting', 'notification_package', 'subscription', 'messaging_subscription', 'direct_message_subscription'],
         required: true
     },
     planId: {

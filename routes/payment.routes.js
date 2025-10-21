@@ -10,7 +10,8 @@ import {
     createSetupIntent,
     getPaymentMethods,
     createMessagingSubscriptionPayment,
-    getMessagingSubscriptionStatus
+    getMessagingSubscriptionStatus,
+    createDirectMessagePayment
 } from '../controllers/paymentController.js';
 import { protectEmployer } from '../middleware/employerAuth.js';
 
@@ -23,6 +24,9 @@ router.post('/create-notification-payment', protectEmployer, createNotificationP
 // Messaging subscription payment routes
 router.post('/create-messaging-subscription-payment', protectEmployer, createMessagingSubscriptionPayment);
 router.get('/messaging-subscription-status/:employerId', protectEmployer, getMessagingSubscriptionStatus);
+
+// Direct messaging payment routes
+router.post('/create-direct-message-payment', protectEmployer, createDirectMessagePayment);
 
 // Payment confirmation routes
 router.post('/confirm-success', protectEmployer, confirmPaymentSuccess);
