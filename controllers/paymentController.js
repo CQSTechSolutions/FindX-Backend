@@ -434,7 +434,44 @@ export const confirmPaymentSuccess = async (req, res) => {
       // Handle direct messaging subscription payments
       if (paymentRecord.type === "direct_message_subscription") {
         try {
-          // Update employer with paid status and enable direct messaging
+          // Create or update messaging subscription for unified system
+          let messagingSubscription = await MessagingSubscription.findOne({ 
+            employerId: paymentRecord.employerId 
+          });
+
+          if (messagingSubscription) {
+            // Update existing subscription - allow renewal regardless of status
+            messagingSubscription = await MessagingSubscription.findByIdAndUpdate(
+              messagingSubscription._id,
+              {
+                isActive: true,
+                remainingContacts: 5, // Reset to 5 contacts
+                totalContacts: 5,
+                purchaseDate: new Date(),
+                paymentId: paymentRecord._id,
+                stripePaymentIntentId: paymentIntentId,
+                contactedUsers: [] // Reset contacted users for new subscription
+              },
+              { new: true }
+            );
+          } else {
+            // Create new messaging subscription
+            messagingSubscription = new MessagingSubscription({
+              employerId: paymentRecord.employerId,
+              subscriptionType: 'messaging_pack',
+              price: 4900,
+              totalContacts: 5,
+              remainingContacts: 5,
+              isActive: true,
+              purchaseDate: new Date(),
+              paymentId: paymentRecord._id,
+              stripePaymentIntentId: paymentIntentId,
+              contactedUsers: []
+            });
+            await messagingSubscription.save();
+          }
+
+          // Update employer with paid status and enable messaging
           await Employer.findByIdAndUpdate(
             paymentRecord.employerId,
             {
@@ -442,10 +479,13 @@ export const confirmPaymentSuccess = async (req, res) => {
               directMessagePaymentDate: new Date(),
               hasDirectMessageSubscription: true,
               messagesAllowed: true,
-              directMessagesSentCount: 0
+              directMessagesSentCount: 0,
+              messagingSubscription: messagingSubscription._id // Link to unified subscription
             }
           );
-          console.log("✅ Direct messaging subscription activated for employer:", paymentRecord.employerId);
+
+          activatedSubscription = messagingSubscription;
+          console.log("✅ Direct messaging subscription activated and unified with messaging subscription:", paymentRecord.employerId);
         } catch (subscriptionError) {
           console.error("Error activating direct messaging subscription:", subscriptionError);
         }
@@ -593,18 +633,7 @@ export const createMessagingSubscriptionPayment = async (req, res) => {
     // Get or create messaging subscription
     const subscription = await MessagingSubscription.getOrCreateForEmployer(objectIdEmployerId);
 
-    // Check if employer already has an active subscription with remaining contacts
-    if (subscription.isActive && subscription.remainingContacts > 0) {
-      return res.status(400).json({
-        success: false,
-        message: "You already have an active messaging subscription with remaining contacts",
-        subscription: {
-          remainingContacts: subscription.remainingContacts,
-          totalContacts: subscription.totalContacts,
-          contactedUsers: subscription.contactedUsers.length
-        }
-      });
-    }
+    // Allow renewals regardless of current status - employers can purchase additional message packs
 
     const config = PRICING_CONFIG.MESSAGING_SUBSCRIPTION;
 
@@ -696,14 +725,7 @@ export const createDirectMessagePayment = async (req, res) => {
       });
     }
 
-    // Check if employer already has paid for direct messaging
-    if (employer.directMessagePaymentStatus === 'paid') {
-      return res.status(400).json({
-        success: false,
-        message: "Direct messaging subscription already purchased",
-        alreadyPaid: true
-      });
-    }
+    // Allow renewals regardless of current status - employers can purchase additional message packs
 
     // Create or get Stripe customer
     let customerId = employer.stripeCustomerId;
@@ -1025,23 +1047,75 @@ export const handleStripeWebhook = async (req, res) => {
           { new: true }
         );
 
-        // If this is a messaging subscription payment, activate the subscription
-        if (updatedPayment && updatedPayment.type === 'messaging_subscription') {
+        // Handle messaging subscription payments (both types)
+        if (updatedPayment && (updatedPayment.type === 'messaging_subscription' || updatedPayment.type === 'direct_message_subscription')) {
           try {
-            // Activate the messaging subscription
-            const subscription = await MessagingSubscription.findByIdAndUpdate(
-              updatedPayment.messagingSubscriptionId,
-              {
-                isActive: true,
-                remainingContacts: updatedPayment.contactsAllowed || 5,
-                totalContacts: updatedPayment.contactsAllowed || 5,
-                purchaseDate: new Date(),
-                paymentId: updatedPayment._id,
-                stripePaymentIntentId: paymentIntentSucceeded.id,
-                contactedUsers: [] // Reset contacted users for new subscription
-              },
-              { new: true }
-            );
+            let subscription;
+            
+            if (updatedPayment.type === 'messaging_subscription') {
+              // Activate the existing messaging subscription
+              subscription = await MessagingSubscription.findByIdAndUpdate(
+                updatedPayment.messagingSubscriptionId,
+                {
+                  isActive: true,
+                  remainingContacts: updatedPayment.contactsAllowed || 5,
+                  totalContacts: updatedPayment.contactsAllowed || 5,
+                  purchaseDate: new Date(),
+                  paymentId: updatedPayment._id,
+                  stripePaymentIntentId: paymentIntentSucceeded.id,
+                  contactedUsers: [] // Reset contacted users for new subscription
+                },
+                { new: true }
+              );
+            } else if (updatedPayment.type === 'direct_message_subscription') {
+              // For direct message subscriptions, create or update MessagingSubscription
+              const existingSubscription = await MessagingSubscription.findOne({
+                employerId: updatedPayment.employerId
+              });
+
+              if (existingSubscription) {
+                // Update existing subscription
+                subscription = await MessagingSubscription.findByIdAndUpdate(
+                  existingSubscription._id,
+                  {
+                    isActive: true,
+                    remainingContacts: 5,
+                    totalContacts: 5,
+                    purchaseDate: new Date(),
+                    paymentId: updatedPayment._id,
+                    stripePaymentIntentId: paymentIntentSucceeded.id,
+                    contactedUsers: [] // Reset contacted users for renewal
+                  },
+                  { new: true }
+                );
+              } else {
+                // Create new subscription
+                subscription = new MessagingSubscription({
+                  employerId: updatedPayment.employerId,
+                  isActive: true,
+                  remainingContacts: 5,
+                  totalContacts: 5,
+                  purchaseDate: new Date(),
+                  paymentId: updatedPayment._id,
+                  stripePaymentIntentId: paymentIntentSucceeded.id,
+                  contactedUsers: []
+                });
+                await subscription.save();
+              }
+
+              // Update employer record with unified subscription data
+              await Employer.findByIdAndUpdate(
+                updatedPayment.employerId,
+                {
+                  directMessagePaymentStatus: 'active',
+                  directMessagePaymentDate: new Date(),
+                  hasDirectMessageSubscription: true,
+                  messagesAllowed: 5,
+                  directMessagesSentCount: 0,
+                  messagingSubscription: subscription._id
+                }
+              );
+            }
 
             // Update employer record with subscription reference
             if (subscription) {

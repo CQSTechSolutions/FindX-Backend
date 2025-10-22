@@ -2,6 +2,7 @@ import DirectMessage from '../models/DirectMessage.model.js';
 import Employer from '../models/employer.model.js';
 import User from '../models/User.js';
 import Notification from '../models/Notification.model.js';
+import MessagingSubscription from '../models/MessagingSubscription.model.js';
 import mongoose from 'mongoose';
 
 // Constants
@@ -12,8 +13,13 @@ export const getSubscriptionStatus = async (req, res) => {
     try {
         const employerId = req.employer.id;
         
+        // Get the unified messaging subscription
+        const subscription = await MessagingSubscription.findOne({ 
+            employerId: employerId 
+        });
+        
         const employer = await Employer.findById(employerId).select(
-            'hasDirectMessageSubscription directMessagesSentCount directMessageSubscriptionDate directMessageSubscriptionExpiryDate'
+            'hasDirectMessageSubscription directMessagesSentCount directMessageSubscriptionDate directMessageSubscriptionExpiryDate messagingSubscription'
         );
         
         if (!employer) {
@@ -22,20 +28,42 @@ export const getSubscriptionStatus = async (req, res) => {
                 message: 'Employer not found'
             });
         }
-        
-        const remainingMessages = employer.hasDirectMessageSubscription 
-            ? Math.max(0, DIRECT_MESSAGE_LIMIT - employer.directMessagesSentCount)
-            : 0;
+
+        // Use unified subscription if available, otherwise fall back to legacy system
+        let hasActiveSubscription = false;
+        let messagesUsed = 0;
+        let messagesRemaining = 0;
+        let subscriptionDate = null;
+        let expiryDate = null;
+
+        if (subscription) {
+            // Use unified MessagingSubscription system
+            hasActiveSubscription = subscription.isActive;
+            messagesUsed = DIRECT_MESSAGE_LIMIT - subscription.remainingContacts;
+            messagesRemaining = subscription.remainingContacts;
+            subscriptionDate = subscription.purchaseDate;
+            // MessagingSubscription doesn't have expiry date - it's based on usage
+        } else {
+            // Fall back to legacy direct message system
+            hasActiveSubscription = employer.hasDirectMessageSubscription && 
+                (!employer.directMessageSubscriptionExpiryDate || 
+                 new Date() < employer.directMessageSubscriptionExpiryDate);
+            messagesUsed = employer.directMessagesSentCount || 0;
+            messagesRemaining = Math.max(0, DIRECT_MESSAGE_LIMIT - messagesUsed);
+            subscriptionDate = employer.directMessageSubscriptionDate;
+            expiryDate = employer.directMessageSubscriptionExpiryDate;
+        }
         
         res.status(200).json({
             success: true,
             data: {
-                hasSubscription: employer.hasDirectMessageSubscription,
-                messagesSent: employer.directMessagesSentCount,
-                remainingMessages,
-                messageLimit: DIRECT_MESSAGE_LIMIT,
-                subscriptionDate: employer.directMessageSubscriptionDate,
-                expiryDate: employer.directMessageSubscriptionExpiryDate
+                hasActiveSubscription,
+                messagesUsed,
+                messagesRemaining,
+                totalMessages: DIRECT_MESSAGE_LIMIT,
+                subscriptionDate,
+                expiryDate,
+                usingUnifiedSystem: !!subscription
             }
         });
     } catch (error) {
@@ -60,7 +88,7 @@ export const sendDirectMessage = async (req, res) => {
             });
         }
         
-        // Get employer and check subscription status
+        // Get employer and unified subscription
         const employer = await Employer.findById(employerId);
         if (!employer) {
             return res.status(404).json({
@@ -68,9 +96,31 @@ export const sendDirectMessage = async (req, res) => {
                 message: 'Employer not found'
             });
         }
+
+        // Get the unified messaging subscription
+        const subscription = await MessagingSubscription.findOne({ 
+            employerId: employerId 
+        });
         
-        // Check if employer has subscription
-        if (!employer.hasDirectMessageSubscription) {
+        // Check subscription status using unified system or legacy fallback
+        let hasActiveSubscription = false;
+        let remainingContacts = 0;
+
+        if (subscription) {
+            // Use unified MessagingSubscription system
+            hasActiveSubscription = subscription.isActive;
+            remainingContacts = subscription.remainingContacts;
+        } else {
+            // Fall back to legacy direct message system
+            hasActiveSubscription = employer.hasDirectMessageSubscription && 
+                (!employer.directMessageSubscriptionExpiryDate || 
+                 new Date() < employer.directMessageSubscriptionExpiryDate);
+            remainingContacts = hasActiveSubscription ? 
+                Math.max(0, DIRECT_MESSAGE_LIMIT - (employer.directMessagesSentCount || 0)) : 0;
+        }
+        
+        // Check if employer has active subscription
+        if (!hasActiveSubscription) {
             return res.status(403).json({
                 success: false,
                 message: 'Direct messaging subscription required'
@@ -78,7 +128,7 @@ export const sendDirectMessage = async (req, res) => {
         }
         
         // Check message limit
-        if (employer.directMessagesSentCount >= DIRECT_MESSAGE_LIMIT) {
+        if (remainingContacts <= 0) {
             return res.status(403).json({
                 success: false,
                 message: 'Direct message limit reached (5). Purchase another pack to continue.'
@@ -133,11 +183,20 @@ export const sendDirectMessage = async (req, res) => {
             await conversation.save();
         }
         
-        // If this is initial contact, increment the employer's sent count and create notification
+        // If this is initial contact, decrement remaining contacts and create notification
         if (isInitialContact) {
-            await Employer.findByIdAndUpdate(employerId, {
-                $inc: { directMessagesSentCount: 1 }
-            });
+            if (subscription) {
+                // Use unified MessagingSubscription system
+                await MessagingSubscription.findByIdAndUpdate(subscription._id, {
+                    $inc: { remainingContacts: -1 },
+                    $addToSet: { contactedUsers: candidateId }
+                });
+            } else {
+                // Fall back to legacy system
+                await Employer.findByIdAndUpdate(employerId, {
+                    $inc: { directMessagesSentCount: 1 }
+                });
+            }
             
             // Create notification for candidate
             const notification = new Notification({
@@ -515,24 +574,50 @@ export const resetMessageCount = async (req, res) => {
     try {
         const employerId = req.employer.id;
         
-        const employer = await Employer.findByIdAndUpdate(
-            employerId,
-            { directMessagesSentCount: 0 },
-            { new: true }
-        ).select('directMessagesSentCount');
+        // Get the unified messaging subscription
+        const subscription = await MessagingSubscription.findOne({ 
+            employerId: employerId 
+        });
         
-        if (!employer) {
-            return res.status(404).json({
-                success: false,
-                message: 'Employer not found'
+        if (subscription) {
+            // Reset using unified MessagingSubscription system
+            await MessagingSubscription.findByIdAndUpdate(subscription._id, {
+                remainingContacts: DIRECT_MESSAGE_LIMIT,
+                contactedUsers: []
+            });
+            
+            res.status(200).json({
+                success: true,
+                message: 'Message count reset successfully (unified system)',
+                data: { 
+                    remainingContacts: DIRECT_MESSAGE_LIMIT,
+                    usingUnifiedSystem: true
+                }
+            });
+        } else {
+            // Fall back to legacy system
+            const employer = await Employer.findByIdAndUpdate(
+                employerId,
+                { directMessagesSentCount: 0 },
+                { new: true }
+            ).select('directMessagesSentCount');
+            
+            if (!employer) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Employer not found'
+                });
+            }
+            
+            res.status(200).json({
+                success: true,
+                message: 'Message count reset successfully (legacy system)',
+                data: { 
+                    directMessagesSentCount: employer.directMessagesSentCount,
+                    usingUnifiedSystem: false
+                }
             });
         }
-        
-        res.status(200).json({
-            success: true,
-            message: 'Message count reset successfully',
-            data: { directMessagesSentCount: employer.directMessagesSentCount }
-        });
         
     } catch (error) {
         console.error('Error resetting message count:', error);
