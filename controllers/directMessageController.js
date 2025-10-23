@@ -115,7 +115,7 @@ export const sendDirectMessage = async (req, res) => {
             hasActiveSubscription = employer.hasDirectMessageSubscription && 
                 (!employer.directMessageSubscriptionExpiryDate || 
                  new Date() < employer.directMessageSubscriptionExpiryDate);
-            remainingContacts = hasActiveSubscription ? 
+            remainingContacts = hasActiveSubscription ?
                 Math.max(0, DIRECT_MESSAGE_LIMIT - (employer.directMessagesSentCount || 0)) : 0;
         }
         
@@ -191,8 +191,7 @@ export const sendDirectMessage = async (req, res) => {
                     $inc: { remainingContacts: -1 },
                     $addToSet: { contactedUsers: candidateId }
                 });
-            } else {
-                // Fall back to legacy system
+
                 await Employer.findByIdAndUpdate(employerId, {
                     $inc: { directMessagesSentCount: 1 }
                 });
