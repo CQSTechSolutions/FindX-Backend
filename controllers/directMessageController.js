@@ -189,7 +189,7 @@ export const sendDirectMessage = async (req, res) => {
                 // Use unified MessagingSubscription system
                 await MessagingSubscription.findByIdAndUpdate(subscription._id, {
                     $inc: { remainingContacts: -1 },
-                    $addToSet: { contactedUsers: candidateId }
+                    $addToSet: { contactedUsers: { userId: candidateId } }
                 });
 
                 await Employer.findByIdAndUpdate(employerId, {
@@ -543,8 +543,8 @@ export const sendCandidateReply = async (req, res) => {
             });
         }
         
-        // Add candidate's reply using the new instance method
-        await conversation.addMessage(candidateId, message.trim(), messageType);
+        // Add candidate's reply using the new instance method (content, senderId, messageType)
+        await conversation.addMessage(message.trim(), candidateId, messageType);
         
         res.status(201).json({
             success: true,
