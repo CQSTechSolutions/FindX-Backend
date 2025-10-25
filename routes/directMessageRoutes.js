@@ -8,7 +8,7 @@ import {
     resetMessageCount,
     sendCandidateReply
 } from '../controllers/directMessageController.js';
-import { protectEmployer } from '../middleware/employerAuth.js';
+import { protectEmployer, protectCandidate } from '../middleware/employerAuth.js';
 
 const router = express.Router();
 
@@ -23,7 +23,7 @@ router.post('/send', protectEmployer, sendDirectMessage);
 // router.post('/reply', protectCandidate, sendCandidateReply);
 
 // Get conversation between employer and specific candidate
-router.get('/conversation/:candidateId', protectEmployer, getConversation);
+router.get('/conversation/:candidateId', protectEmployer || protectCandidate, getConversation);
 
 // Get all conversations for employer
 router.get('/conversations', protectEmployer, getEmployerConversations);
