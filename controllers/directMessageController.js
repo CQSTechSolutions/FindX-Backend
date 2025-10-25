@@ -544,7 +544,8 @@ export const sendCandidateReply = async (req, res) => {
         }
         
         // Add candidate's reply using the new instance method (content, senderId, messageType)
-        await conversation.addMessage(message.trim(), candidateId, messageType);
+        conversation.addMessage(message.trim(), candidateId, messageType);
+        await conversation.save();
         
         res.status(201).json({
             success: true,
