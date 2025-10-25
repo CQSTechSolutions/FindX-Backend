@@ -6,7 +6,9 @@ import {
     getEmployerConversations,
     updateSubscriptionStatus,
     resetMessageCount,
-    sendCandidateReply
+    sendCandidateReply,
+    getCandidateConversations,
+    getCandidateConversation
 } from '../controllers/directMessageController.js';
 import { protectEmployer, protectCandidate } from '../middleware/employerAuth.js';
 
@@ -23,7 +25,7 @@ router.post('/send', protectEmployer, sendDirectMessage);
 // router.post('/reply', protectCandidate, sendCandidateReply);
 
 // Get conversation between employer and specific candidate
-router.get('/conversation/:candidateId', protectEmployer || protectCandidate, getConversation);
+router.get('/conversation/:candidateId', protectEmployer, getConversation);
 
 // Get all conversations for employer
 router.get('/conversations', protectEmployer, getEmployerConversations);
@@ -33,5 +35,15 @@ router.post('/reset-count', protectEmployer, resetMessageCount);
 
 // Admin routes for subscription management
 router.put('/subscription/:employerId', updateSubscriptionStatus);
+
+// ===== CANDIDATE ROUTES =====
+// Get all conversations for candidate
+router.get('/candidate/conversations', protectCandidate, getCandidateConversations);
+
+// Get conversation between candidate and specific employer
+router.get('/candidate/conversation/:employerId', protectCandidate, getCandidateConversation);
+
+// Send reply from candidate to employer
+router.post('/candidate/reply', protectCandidate, sendCandidateReply);
 
 export default router;

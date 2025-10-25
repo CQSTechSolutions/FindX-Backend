@@ -626,3 +626,214 @@ export const resetMessageCount = async (req, res) => {
         });
     }
 };
+
+// Get all conversations for candidate
+export const getCandidateConversations = async (req, res) => {
+    try {
+        const candidateId = req.user.id;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const status = 'active';
+
+        // Fetch conversations and total count
+        const [conversations, total] = await Promise.all([
+            DirectMessage.getCandidateConversations(candidateId, { page, limit, status }),
+            DirectMessage.countDocuments({ 'participants.candidate': candidateId, status })
+        ]);
+
+        if (!conversations.length) {
+            return res.status(200).json({
+                success: true,
+                data: [],
+                pagination: {
+                    page,
+                    limit,
+                    total,
+                    totalPages: 0,
+                    hasNext: false,
+                    hasPrev: false
+                }
+            });
+        }
+        
+        // Get all unique employer IDs
+        const employerIds = conversations.map(conv => conv.participants.employer);
+        
+        // Convert string IDs to ObjectIds if needed
+        const objectIdEmployerIds = employerIds.map(id => {
+            if (typeof id === 'string') {
+                return new mongoose.Types.ObjectId(id);
+            }
+            return id;
+        });
+        
+        // Get employer details
+        const employers = await Employer.find({
+            _id: { $in: objectIdEmployerIds }
+        }).select('companyName EmployerName EmployerDesignation companyLogo');
+        
+        // Create a map for quick employer lookup
+        const employerMap = employers.reduce((map, employer) => {
+            map[employer._id.toString()] = employer;
+            map[employer._id] = employer;
+            return map;
+        }, {});
+        
+        // Format conversations for response
+        const formattedConversations = conversations.map(conversation => {
+            const employerId = conversation.participants.employer;
+            const employer = employerMap[employerId.toString()];
+            
+            return {
+                conversationId: conversation._id,
+                employer: {
+                    id: employerId,
+                    name: employer?.companyName || employer?.EmployerName || '',
+                    email: employer?.email || '',
+                    avatar: employer?.companyLogo || '',
+                    designation: employer?.EmployerDesignation || ''
+                },
+                lastMessage: {
+                    content: conversation.lastMessage?.content || '',
+                    senderId: conversation.lastMessage?.senderId || '',
+                    sender: conversation.lastMessage?.senderId && conversation.lastMessage.senderId.toString() === candidateId ? 'candidate' : 'employer',
+                    timestamp: conversation.lastMessage?.timestamp || conversation.updatedAt
+                },
+                messageCount: conversation.messageCount,
+                status: conversation.status,
+                isInitialContact: conversation.isInitialContact,
+                lastActivity: conversation.updatedAt
+            };
+        });
+        
+        const totalPages = Math.ceil(total / limit) || 1;
+        res.status(200).json({
+            success: true,
+            data: formattedConversations,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages,
+                hasNext: page < totalPages,
+                hasPrev: page > 1
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error getting candidate conversations:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error'
+        });
+    }
+};
+
+// Get conversation between candidate and employer
+export const getCandidateConversation = async (req, res) => {
+    try {
+        const candidateId = req.user.id;
+        const { employerId } = req.params;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 50;
+        
+        if (!employerId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Employer ID is required'
+            });
+        }
+        
+        // Find conversation using the new static method
+        const conversation = await DirectMessage.findConversation(employerId, candidateId);
+        
+        if (!conversation) {
+            return res.status(200).json({
+                success: true,
+                data: {
+                    conversationId: null,
+                    messages: [],
+                    participants: {
+                        employer: employerId,
+                        candidate: candidateId
+                    },
+                    pagination: {
+                        page,
+                        limit,
+                        total: 0,
+                        totalPages: 0
+                    }
+                }
+            });
+        }
+        
+        // Get participant details
+        const [employer, candidate] = await Promise.all([
+            Employer.findById(employerId).select('companyName EmployerName EmployerDesignation companyLogo'),
+            User.findById(candidateId).select('firstName lastName email profilePicture')
+        ]);
+        
+        // Calculate pagination for messages
+        const totalMessages = conversation.messages.length;
+        const totalPages = Math.ceil(totalMessages / limit);
+        const skip = (page - 1) * limit;
+        
+        // Get paginated messages (most recent first)
+        const paginatedMessages = conversation.messages
+            .slice()
+            .reverse() // Most recent first
+            .slice(skip, skip + limit)
+            .reverse(); // Back to chronological order for display
+        
+        // Format messages for response
+        const messages = paginatedMessages.map((msg, index) => ({
+            id: msg._id,
+            content: msg.content,
+            senderId: msg.senderId,
+            sender: msg.senderId.toString() === candidateId ? 'candidate' : 'employer',
+            messageType: msg.messageType,
+            timestamp: msg.timestamp,
+            isRead: msg.isRead
+        }));
+        
+        // Mark messages as read for the candidate
+        await conversation.markMessagesAsRead(candidateId);
+        await conversation.save();
+        
+        res.status(200).json({
+            success: true,
+            data: {
+                conversationId: conversation._id,
+                messages,
+                participants: {
+                    employer: {
+                        id: employerId,
+                        ...employer?.toObject()
+                    },
+                    candidate: {
+                        id: candidateId,
+                        ...candidate?.toObject()
+                    }
+                },
+                lastMessage: conversation.lastMessage,
+                messageCount: conversation.messageCount,
+                status: conversation.status,
+                pagination: {
+                    page,
+                    limit,
+                    total: totalMessages,
+                    totalPages,
+                    hasNext: page < totalPages,
+                    hasPrev: page > 1
+                }
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error getting candidate conversation:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error'
+        });
+    }
+};
