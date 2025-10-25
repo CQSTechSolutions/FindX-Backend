@@ -58,15 +58,19 @@ export const protectCandidate = async (req, res, next) => {
 
         try {
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            
+            // Import User model dynamically to avoid circular dependency
+            const User = (await import('../models/User.js')).default;
+            const user = await User.findById(decoded.id);
 
-            if (decoded.id !== req.params.userId) {
-                return res.status(403).json({
+            if (!user) {
+                return res.status(404).json({
                     success: false,
-                    message: 'Access denied: user mismatch'
+                    message: 'User not found'
                 });
             }
 
-            req.user = decoded;
+            req.user = user;
             next();
         } catch (error) {
             return res.status(401).json({

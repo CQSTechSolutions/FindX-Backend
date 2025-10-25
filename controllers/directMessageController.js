@@ -514,7 +514,7 @@ export const updateSubscriptionStatus = async (req, res) => {
 // Send reply from candidate to employer
 export const sendCandidateReply = async (req, res) => {
     try {
-        const candidateId = req.user.id; // Assuming candidate auth middleware sets req.user
+        const candidateId = req.user._id; // Using full user object now
         const { employerId, message, messageType = 'text' } = req.body;
         
         if (!employerId || !message) {
@@ -630,7 +630,7 @@ export const resetMessageCount = async (req, res) => {
 // Get all conversations for candidate
 export const getCandidateConversations = async (req, res) => {
     try {
-        const candidateId = req.user.id;
+        const candidateId = req.user._id;
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
         const status = 'active';
@@ -732,7 +732,7 @@ export const getCandidateConversations = async (req, res) => {
 // Get conversation between candidate and employer
 export const getCandidateConversation = async (req, res) => {
     try {
-        const candidateId = req.user.id;
+        const candidateId = req.user._id;
         const { employerId } = req.params;
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 50;
